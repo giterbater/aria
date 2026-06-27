@@ -20,6 +20,7 @@ sys.path.append(str(Path(__file__).parent))
 import speech_recognition as sr
 import customtkinter as ctk   # only to check availability; UI runs its own mainloop
 
+from aria_logging import logger
 from event_bus import bus
 from ui.aria_ui import run_ui
 from input_interpreter.factory import build_input_interpreter
@@ -187,12 +188,12 @@ def _aria_worker(stop_event: threading.Event):
                 continue
             except Exception as e:
                 import traceback
-                print(f"[WORKER] Unexpected error: {e}")
+                logger.error(f"Unexpected error: {e}")
                 traceback.print_exc()
                 pub("SystemStatus", f"Error: {e}")
                 break
 
-    print("[WORKER] Worker thread ending")
+    logger.info("Worker thread ending")
 
 # ----------------------------------------------------------------------
 # Main – launch UI and worker thread
@@ -201,14 +202,14 @@ def main():
     stop_event = threading.Event()
     worker = threading.Thread(target=_aria_worker, args=(stop_event,), daemon=True)
     worker.start()
-    print("[MAIN] About to run_ui")
+    logger.info("Starting ARIA UI")
     try:
         run_ui()          # blocks until the user closes the window
     finally:
-        print("[MAIN] UI closed, signalling worker to stop")
+        logger.info("UI closed, signalling worker to stop")
         stop_event.set()
         worker.join(timeout=2)
-        print("[MAIN] Cleanup done")
+        logger.info("Cleanup done")
 
 if __name__ == "__main__":
     main()

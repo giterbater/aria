@@ -11,10 +11,7 @@ from datetime import datetime
 from typing import Dict
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
-logger = logging.getLogger(__name__)
-
-print("[UI] Importing ui module")
+logger = logging.getLogger("aria.ui")
 
 from event_bus import bus
 from output_planner.alang_serialization import alang_to_str
@@ -26,7 +23,6 @@ from output_planner.alang_serialization import alang_to_str
 class ARIAUI(ctk.CTk):
     def __init__(self):
         super().__init__()
-        print("[UI] ARIAUI __init__ started")
         logger.debug("ARIAUI __init__ started")
         self.title("ARIA – Cognitive Avatar")
         self.geometry("460x620")

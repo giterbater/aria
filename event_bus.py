@@ -9,7 +9,10 @@ UI (or any other subscriber) does:
 
 from __future__ import annotations
 import threading
+import logging
 from typing import Callable, Dict, List, Any
+
+logger = logging.getLogger("aria.event_bus")
 
 
 class _EventBus:
@@ -38,7 +41,7 @@ class _EventBus:
             try:
                 cb(payload)
             except Exception as e:          # never let a UI bug crash the core
-                print(f"[EventBus] Error in callback for {event_name}: {e}")
+                logger.warning(f"Error in callback for {event_name}: {e}", exc_info=True)
 
 
 # singleton instance used everywhere

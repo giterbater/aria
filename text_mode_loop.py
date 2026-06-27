@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -26,6 +27,8 @@ from aria_core.memory.simple_memory_system import SimpleMemorySystem
 from aria_core.goals import GoalManager, Goal
 from aria_core.interfaces import ARIDecision
 from output_planner.alang_serialization import alang_to_str
+
+logger = logging.getLogger("aria.text_mode_loop")
 
 
 def _load_config():
@@ -185,9 +188,7 @@ def run_text_loop(verbose: bool = True):
                 break
             except Exception as e:
                 print(f"\nARIA: Error processing input: {e}")
-                if verbose:
-                    import traceback
-                    traceback.print_exc()
+                logger.error(f"Error processing input: {e}", exc_info=True)
 
     finally:
         print("\nARIA Text Mode ended.\n")
