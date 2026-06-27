@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import datetime
 import math
-from typing import List, Tuple, Dict, Any, Iterable
+from typing import List, Tuple, Dict, Any, Optional
 
 from .interfaces import MemorySystemProtocol
 from .models import (
@@ -20,6 +20,64 @@ from .models import (
     EpisodicItem,
     SemanticItem,
 )
+
+
+def _extract_text(obj: Any) -> str:
+    """Extract meaningful text from structured objects for indexing and relevance.
+
+    Handles StructuredInput-like objects, ARIDecision-like objects, dicts,
+    and common containers, falling back to str() when nothing useful is found.
+    """
+    if obj is None:
+        return ""
+    parts: List[str] = []
+    _extract_text_into(obj, parts)
+    return " ".join(parts)
+
+
+def _extract_text_into(obj: Any, parts: List[str]) -> None:
+    """Recursively collect text fragments into *parts*."""
+    if obj is None:
+        return
+    # StructuredInput-like: pull out semantic fields
+    if hasattr(obj, "raw_text") or hasattr(obj, "intent"):
+        _maybe_append(parts, getattr(obj, "raw_text", None))
+        _maybe_append(parts, getattr(obj, "intent", None))
+        _maybe_append(parts, getattr(obj, "emotional_cue", None))
+        for item in getattr(obj, "facts", []) or []:
+            _maybe_append(parts, item)
+        for item in getattr(obj, "questions", []) or []:
+            _maybe_append(parts, item)
+        for ent in getattr(obj, "entities", []) or []:
+            _maybe_append(parts, getattr(ent, "text", None))
+            _maybe_append(parts, getattr(ent, "label", None))
+        return
+    # ARIDecision-like
+    if hasattr(obj, "action_type") and hasattr(obj, "payload"):
+        _maybe_append(parts, getattr(obj, "action_type", None))
+        payload = getattr(obj, "payload", None)
+        if payload is not None:
+            _extract_text_into(payload, parts)
+        return
+    # dict
+    if isinstance(obj, dict):
+        for v in obj.values():
+            _extract_text_into(v, parts)
+        return
+    # list / tuple / set
+    if isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            _extract_text_into(v, parts)
+        return
+    # Anything else: convert to string
+    _maybe_append(parts, str(obj))
+
+
+def _maybe_append(parts: List[str], val: Any) -> None:
+    if val is not None:
+        s = str(val).strip()
+        if s:
+            parts.append(s)
 
 # ----------------------------------------------------------------------
 # Tiny helper for cosine similarity – we avoid heavy deps.
@@ -86,6 +144,7 @@ class SimpleMemorySystem(MemorySystemProtocol):
     # ------------------------------------------------------------------
     def store_working(self, item: WorkingMemoryItem) -> None:
         self._working.append(item)
+        self._update_vocab_from_item(item)
         if len(self._working) > self._working_capacity:
             self._working.pop(0)  # FIFO eviction
 
@@ -134,11 +193,11 @@ class SimpleMemorySystem(MemorySystemProtocol):
         q_vec = _tfidf_vector(query, self._vocab)
         scored: List[Tuple[SemanticItem, float]] = []
         for mem in self._semantic:
-            f_vec = _tfidf_vector(str(mem.fact), self._vocab)
+            f_vec = _tfidf_vector(_extract_text(mem.fact), self._vocab)
             score = _cosine_sim(q_vec, f_vec)
             scored.append((mem, score))
         scored.sort(key=lambda x: x[1], reverse=True)
-        return [mem for mem, _ in scored[:limit]]
+        return [mem for mem, s in scored[:limit] if s > 0]
 
     # ------------------------------------------------------------------
     # Relevance‑based retrieval (combined)
@@ -157,19 +216,19 @@ class SimpleMemorySystem(MemorySystemProtocol):
 
         # Working
         for wm in self._working:
-            wm_vec = _tfidf_vector(str(wm.structured_input), self._vocab)
+            wm_vec = _tfidf_vector(_extract_text(wm.structured_input), self._vocab)
             sim = _cosine_sim(cue_vec, wm_vec)
             results.append((wm, sim * working_weight))
 
         # Episodic
         for em in self._episodic:
-            em_vec = _tfidf_vector(str(em.structured_input), self._vocab)
+            em_vec = _tfidf_vector(_extract_text(em.structured_input), self._vocab)
             sim = _cosine_sim(cue_vec, em_vec)
             results.append((em, sim * episodic_weight))
 
         # Semantic
         for sm in self._semantic:
-            sm_vec = _tfidf_vector(str(sm.fact), self._vocab)
+            sm_vec = _tfidf_vector(_extract_text(sm.fact), self._vocab)
             sim = _cosine_sim(cue_vec, sm_vec)
             results.append((sm, sim * semantic_weight))
 
@@ -195,12 +254,7 @@ class SimpleMemorySystem(MemorySystemProtocol):
         # salience: look for emotional cue in structured_input or notes
         text_parts: List[str] = []
         if hasattr(item, "structured_input") and item.structured_input:
-            si = item.structured_input
-            if isinstance(si, dict):
-                text_parts.append(str(si.get("emotional_cue", "")))
-                text_parts.append(str(si.get("raw_text", "")))
-            else:
-                text_parts.append(str(si))
+            text_parts.append(_extract_text(item.structured_input))
         if hasattr(item, "notes") and item.notes:
             text_parts.append(item.notes)
 
@@ -226,21 +280,15 @@ class SimpleMemorySystem(MemorySystemProtocol):
 
     def _update_vocab_from_item(self, item: MemoryItem) -> None:
         """Update the term‑frequency tables used for novelty/TF‑IDF."""
-        # extract a blob of text from the item (very naive)
         blob_parts: List[str] = []
         if hasattr(item, "structured_input") and item.structured_input:
-            si = item.structured_input
-            if isinstance(si, dict):
-                blob_parts.append(str(si.get("raw_text", "")))
-                blob_parts.append(str(si.get("emotional_cue", "")))
-            else:
-                blob_parts.append(str(si))
+            blob_parts.append(_extract_text(item.structured_input))
         if hasattr(item, "fact") and item.fact:
-            blob_parts.append(str(item.fact))
+            blob_parts.append(_extract_text(item.fact))
         if hasattr(item, "notes") and item.notes:
             blob_parts.append(item.notes)
         if hasattr(item, "decision") and item.decision:
-            blob_parts.append(str(item.decision))
+            blob_parts.append(_extract_text(item.decision))
 
         blob = " ".join(blob_parts).lower()
         for token in set(blob.split()):

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Optional, List
 
 # ----------------------------------------------------------------------
@@ -24,18 +24,14 @@ class MemoryItem:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def with_importance(self, new_imp: float) -> "MemoryItem":
-        """Return a copy with updated importance (immutable update)."""
-        return MemoryItem(
-            id=self.id,
-            timestamp=self.timestamp,
+        """Return a copy with updated importance while preserving concrete type."""
+        return replace(
+            self,
             importance=max(0.0, min(1.0, new_imp)),
             metadata=dict(self.metadata),
         )
 
 
-# ----------------------------------------------------------------------
-# Working memory – very short term, often just a buffer
-# ----------------------------------------------------------------------
 @dataclass(frozen=True)
 class WorkingMemoryItem(MemoryItem):
     """Holds the most recent raw inputs / interpretations."""
@@ -44,9 +40,6 @@ class WorkingMemoryItem(MemoryItem):
     context: Dict[str, Any] = field(default_factory=dict)
 
 
-# ----------------------------------------------------------------------
-# Episodic memory – a complete interaction episode
-# ----------------------------------------------------------------------
 @dataclass(frozen=True)
 class EpisodicItem(MemoryItem):
     """A snapshot of one turn: what ARIA perceived, decided, and the outcome."""
@@ -57,9 +50,6 @@ class EpisodicItem(MemoryItem):
     notes: Optional[str] = None
 
 
-# ----------------------------------------------------------------------
-# Semantic memory – distilled knowledge / facts
-# ----------------------------------------------------------------------
 @dataclass(frozen=True)
 class SemanticItem(MemoryItem):
     """A piece of knowledge that ARIA has consolidated over time."""
