@@ -12,6 +12,14 @@ ARIA is a modular assistant prototype split into focused subsystems:
 
 The runnable demo path is rule-based input interpretation, simple in-memory cognition, rule-based output planning, and the mock language model fallback. Voice input and the CustomTkinter UI remain part of the interactive entry point in `main.py`.
 
+For testing and debugging without microphone or UI dependencies, use the text-mode conversation loop:
+
+```powershell
+python -m text_mode_loop
+```
+
+This entry point processes user input via stdin/stdout, runs the full perception-cognition pipeline, and displays debug information (confidence, action type, ALang terms).
+
 Run the current smoke tests with:
 
 ```powershell
