@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 import customtkinter as ctk
 from datetime import datetime
-from typing import Any, Dict
+from typing import Dict
 import logging
 
 logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
@@ -17,29 +17,7 @@ logger = logging.getLogger(__name__)
 print("[UI] Importing ui module")
 
 from event_bus import bus
-
-
-# ----------------------------------------------------------------------
-# Helper: simple ALang → pretty string (only for debugging)
-# ----------------------------------------------------------------------
-def _alang_to_str(term: Any) -> str:
-    """
-    Very lightweight renderer – expects the term to be a dict‑like
-    structure that mirrors the ALang constructors we use internally.
-    If the term is not recognisable we just fall back to repr().
-    """
-    if isinstance(term, dict):
-        # pick a known constructor key if present
-        for k in term:
-            if k.startswith(":"):
-                return f"{k} {_alang_to_str(term[k])}"
-        # fallback: show the map
-        return "{" + " ".join(f"{k}:{_alang_to_str(v)}" for k, v in term.items()) + "}"
-    if isinstance(term, list):
-        return "[" + " ".join(_alang_to_str(e) for e in term) + "]"
-    if isinstance(term, str):
-        return f'"{term}"'
-    return str(term)
+from output_planner.alang_serialization import alang_to_str
 
 
 # ----------------------------------------------------------------------
@@ -238,7 +216,7 @@ class ARIAUI(ctk.CTk):
         alang = payload.get("alang")
         if alang is not None:
             self._state["alang_thought"] = alang
-            self._set_textbox(self.txt_alang, _alang_to_str(alang))
+            self._set_textbox(self.txt_alang, alang_to_str(alang))
 
     def _on_action_planned(self, payload: dict):
         # Not directly visualized; could be used to show planned action type
@@ -290,7 +268,7 @@ class ARIAUI(ctk.CTk):
     def _on_thought_generated(self, payload: Any):
         """Called whenever ARIA produces an internal ALang term we want to show."""
         self._state["alang_thought"] = payload
-        self._set_textbox(self.txt_alang, _alang_to_str(payload))
+        self._set_textbox(self.txt_alang, alang_to_str(payload))
 
     def _on_system_status(self, payload: str):
         self._state["status"] = payload
