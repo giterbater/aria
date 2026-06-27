@@ -186,7 +186,9 @@ def _aria_worker(stop_event: threading.Event):
                 pub("SystemStatus", f"STT error: {e}")
                 continue
             except Exception as e:
+                import traceback
                 print(f"[WORKER] Unexpected error: {e}")
+                traceback.print_exc()
                 pub("SystemStatus", f"Error: {e}")
                 break
 
