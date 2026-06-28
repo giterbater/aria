@@ -10,7 +10,24 @@ from __future__ import annotations
 import datetime
 import uuid
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from typing import Any, Dict, Optional, List
+
+
+# ----------------------------------------------------------------------
+# Outcome – how an episode ended relative to its intent
+# ----------------------------------------------------------------------
+class Outcome(str, Enum):
+    """Closed-set classification of an episode's outcome.
+
+    Values are strings so they round-trip cleanly through JSON/SQLite.
+    """
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    IGNORED = "ignored"
+    CORRECTED = "corrected"
+
 
 # ----------------------------------------------------------------------
 # Base class – all memory items share these fields

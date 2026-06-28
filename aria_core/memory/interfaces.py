@@ -16,7 +16,7 @@ from typing import Protocol, Iterable, Tuple, List, Optional, Dict, Any, runtime
 # ----------------------------------------------------------------------
 # Shared data models (imported from models.py for brevity in the protocol)
 # ----------------------------------------------------------------------
-from .models import MemoryItem, WorkingMemoryItem, EpisodicItem, SemanticItem
+from .models import MemoryItem, WorkingMemoryItem, EpisodicItem, SemanticItem, Outcome
 
 
 @runtime_checkable
@@ -102,6 +102,25 @@ class MemorySystemProtocol(Protocol):
         Permanently discard items whose importance falls below *threshold*
         and are older than *older_than*.  Returns the number of items
         removed.
+        """
+        ...
+
+    # ------------------------------------------------------------------
+    # Outcome feedback (added in M2 – closed-loop reinforcement)
+    # ------------------------------------------------------------------
+    def record_outcome(
+        self,
+        episode_id: str,
+        outcome: "Outcome",
+        *,
+        notes: str | None = None,
+    ) -> None:
+        """Update the outcome field of an existing episodic item.
+
+        No-op if episode_id is unknown. The clamped importance after a
+        success is item.importance + 0.1 (capped at 1.0). After a failure
+        it is item.importance - 0.05 (floored at 0.0). PARTIAL is +0.0.
+        CORRECTED is +0.05. IGNORED is -0.05.
         """
         ...
 
