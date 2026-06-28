@@ -31,7 +31,7 @@ from output_planner.alang_serialization import alang_to_str
 logger = logging.getLogger("aria.text_mode_loop")
 
 
-def _load_config():
+def _load_config() -> dict:
     """Load ARIA configuration (copied from main.py for independence)."""
     import os
     use_mock = not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY").startswith("sk-fake")
@@ -69,7 +69,7 @@ def _load_config():
     }
 
 
-def run_text_loop(verbose: bool = True):
+def run_text_loop(verbose: bool = True) -> None:
     """
     Run ARIA in text-mode conversation loop.
     

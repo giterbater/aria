@@ -13,6 +13,7 @@ import sys
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 # Add the directory containing this file (i.e., the aria_project folder) to sys.path
 sys.path.append(str(Path(__file__).parent))
@@ -34,8 +35,8 @@ from aria_core.interfaces import ARIDecision
 
 # ----------------------------------------------------------------------
 # Configuration (same as before – rule‑based only for the demo)
-# ----------------------------------------------------------------------
-def _load_config():
+def _load_config() -> dict:
+    """Load ARIA configuration."""
     use_mock = not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY").startswith("sk-fake")
     model_cfg = {
         "module": "language_cortex.models.mock",
@@ -77,8 +78,8 @@ def _load_config():
 
 # ----------------------------------------------------------------------
 # Background worker – does the actual ARIA processing
-# ----------------------------------------------------------------------
-def _aria_worker(stop_event: threading.Event):
+def _aria_worker(stop_event: threading.Event) -> None:
+    """Run the ARIA cognitive loop in a worker thread."""
     cfg = _load_config()
 
     # Build modules
@@ -102,10 +103,10 @@ def _aria_worker(stop_event: threading.Event):
     microphone = sr.Microphone()
 
     # Helper to publish events
-    def pub(ev, payload=None):
+    def pub(ev: str, payload: Any = None) -> None:
         bus.publish(ev, payload)
 
-    def run_async(coro):
+    def run_async(coro: Any) -> Any:
         """Run one async subsystem call from the synchronous worker thread."""
         return asyncio.run(coro)
 
@@ -197,8 +198,8 @@ def _aria_worker(stop_event: threading.Event):
 
 # ----------------------------------------------------------------------
 # Main – launch UI and worker thread
-# ----------------------------------------------------------------------
-def main():
+def main() -> None:
+    """Launch ARIA UI and background worker."""
     stop_event = threading.Event()
     worker = threading.Thread(target=_aria_worker, args=(stop_event,), daemon=True)
     worker.start()

@@ -11,15 +11,19 @@ Usage:
 
 import logging
 import sys
+from typing import Optional
 
 
-def setup_logging(level: str = "INFO", log_file: str = None):
+def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> logging.Logger:
     """
     Configure logging for ARIA.
     
     Args:
         level: Logging level as string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_file: Optional file path to write logs to. If None, logs to stderr.
+    
+    Returns:
+        The configured logger instance.
     """
     # Create logger
     logger = logging.getLogger("aria")
@@ -52,7 +56,7 @@ def setup_logging(level: str = "INFO", log_file: str = None):
 logger = setup_logging()
 
 
-def get_logger(name: str = None):
+def get_logger(name: Optional[str] = None) -> logging.Logger:
     """Get a logger for a specific module."""
     if name:
         return logging.getLogger(f"aria.{name}")
