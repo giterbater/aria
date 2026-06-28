@@ -19,6 +19,7 @@ from .models import (
     WorkingMemoryItem,
     EpisodicItem,
     SemanticItem,
+    Outcome,
 )
 
 
@@ -403,3 +404,23 @@ class SimpleMemorySystem(MemorySystemProtocol):
             "semantic": len(self._semantic),
             "vocab_terms": len(self._vocab),
         }
+
+    # ------------------------------------------------------------------
+    # Outcome writeback (M2 contract) — out of scope for the in-memory
+    # reference implementation. Per the contract: "implementations that
+    # don't support writeback must raise NotImplementedError until M2
+    # lands." This backend is intentionally not the persistent one;
+    # SQLiteMemorySystem implements the full M2 contract.
+    # ------------------------------------------------------------------
+    def record_outcome(
+        self,
+        episode_id: str,
+        outcome: Outcome,
+        *,
+        notes: Optional[str] = None,
+    ) -> None:
+        raise NotImplementedError(
+            "SimpleMemorySystem is the in-memory reference backend and does "
+            "not support outcome writeback. Use SQLiteMemorySystem (or a "
+            "future persistent backend) for M2 outcome feedback."
+        )
