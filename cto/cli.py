@@ -77,115 +77,152 @@ def _validate_environment(config: CTOConfig) -> list[str]:
     return issues
 
 
+def _create_prompt_session():
+    """Create a prompt_toolkit session with multi-line support.
+
+    - Enter submits when cursor is at end of a non-empty line
+    - Alt+Enter inserts a newline (for multi-line input)
+    - Pasted multi-line text is treated as one message
+    """
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.key_binding import KeyBindings
+
+    bindings = KeyBindings()
+
+    @bindings.add("enter")
+    def _(event):
+        buf = event.app.current_buffer
+        text = buf.text
+        cursor_at_end = buf.cursor_position == len(text)
+
+        if not text:
+            buf.validate_and_handle()
+        elif cursor_at_end:
+            buf.validate_and_handle()
+        else:
+            buf.insert_text("\n")
+
+    @bindings.add("escape", "enter")
+    def _(event):
+        event.app.current_buffer.insert_text("\n")
+
+    return PromptSession(
+        key_bindings=bindings,
+        history=InMemoryHistory(),
+        multiline=False,
+        wrap_lines=True,
+    )
+
+
 def _interactive_mode(brain) -> None:
+    session = _create_prompt_session()
+
     print("\n=== ARIA CTO Interactive Mode ===")
-    print("Type a task and press Enter. Type 'quit' or 'exit' to stop.\n")
+    print("Enter to submit. Alt+Enter for new line. Type 'quit' to exit.\n")
 
     conversation: list[dict[str, str]] = []
 
-    try:
-        while True:
-            try:
-                user_input = input("You> ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nExiting.")
-                break
+    while True:
+        try:
+            user_input = session.prompt("You> ")
+        except (EOFError, KeyboardInterrupt):
+            print("\nExiting.")
+            break
 
-            if not user_input:
-                continue
-            if user_input.lower() in ("quit", "exit", "q"):
-                print("Goodbye.")
-                break
+        user_input = user_input.strip()
+        if not user_input:
+            continue
+        if user_input.lower() in ("quit", "exit", "q"):
+            print("Goodbye.")
+            break
 
-            if brain.llm is None:
-                print("[Error] No LLM available. Cannot process requests.")
-                continue
+        if brain.llm is None:
+            print("[Error] No LLM available. Cannot process requests.")
+            continue
 
-            print(f"\n[CTO] Processing: {user_input}")
+        print(f"\n[CTO] Processing: {user_input[:100]}{'...' if len(user_input) > 100 else ''}")
 
-            conversation.append({"role": "user", "content": user_input})
+        conversation.append({"role": "user", "content": user_input})
 
-            tool_names = ", ".join(brain.tools.known_tools())
-            history_text = ""
-            if len(conversation) > 1:
-                recent = conversation[-6:]
-                history_text = "\n".join(
-                    f"{'User' if m['role'] == 'user' else 'CTO'}: {m['content'][:200]}"
-                    for m in recent[:-1]
-                )
-                history_text = f"\n\nConversation so far:\n{history_text}\n"
-
-            prompt = (
-                f"You are ARIA, an autonomous CTO. "
-                f"EXACT TOOL NAMES: {tool_names}\n"
-                f"{history_text}\n"
-                f"Current request: {user_input}\n\n"
-                f"Use a tool. Respond with JSON:\n"
-                f'{{"action": "<tool_name>", "args": {{"path": "..."}}, "reasoning": "..."}}\n'
-                f"Example: {json.dumps({'action': 'read_file', 'args': {'path': 'main.py'}, 'reasoning': 'reading file'})}"
+        tool_names = ", ".join(brain.tools.known_tools())
+        history_text = ""
+        if len(conversation) > 1:
+            recent = conversation[-8:]
+            history_text = "\n".join(
+                f"{'User' if m['role'] == 'user' else 'CTO'}: {m['content'][:300]}"
+                for m in recent[:-1]
             )
+            history_text = f"\n\nConversation so far:\n{history_text}\n"
 
-            try:
-                if hasattr(brain.llm, "generate_sync"):
-                    raw = brain.llm.generate_sync(prompt, max_tokens=2048, temperature=0.3)
-                else:
-                    raw = loop.run_until_complete(
-                        brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
-                    )
-            except Exception as exc:
-                print(f"[Error] LLM failed: {exc}")
-                conversation.pop()
+        prompt = (
+            f"You are ARIA, an autonomous CTO. "
+            f"EXACT TOOL NAMES: {tool_names}\n"
+            f"{history_text}\n"
+            f"Current request:\n{user_input}\n\n"
+            f"Use a tool. Respond with JSON:\n"
+            f'{{"action": "<tool_name>", "args": {{"path": "..."}}, "reasoning": "..."}}\n'
+            f"Example: {json.dumps({'action': 'read_file', 'args': {'path': 'main.py'}, 'reasoning': 'reading file'})}"
+        )
+
+        try:
+            if hasattr(brain.llm, "generate_sync"):
+                raw = brain.llm.generate_sync(prompt, max_tokens=2048, temperature=0.3)
+            else:
+                raw = loop.run_until_complete(
+                    brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
+                )
+        except Exception as exc:
+            print(f"[Error] LLM failed: {exc}")
+            conversation.pop()
+            continue
+
+        action = _parse_response(raw)
+
+        response_text = action.get("response")
+        if response_text and action.get("action") is None:
+            print(f"\nCTO> {response_text}\n")
+            conversation.append({"role": "assistant", "content": response_text})
+            continue
+
+        tool_name = action.get("action")
+        if not tool_name:
+            msg = action.get("reasoning", "No action determined.")
+            print(f"\nCTO> {msg}\n")
+            conversation.append({"role": "assistant", "content": msg})
+            continue
+
+        tool_args = action.get("args", {})
+
+        if brain.permissions.is_blocked(tool_name, tool_args):
+            msg = f"[Blocked] {tool_name} is not allowed."
+            print(f"\nCTO> {msg}\n")
+            conversation.append({"role": "assistant", "content": msg})
+            continue
+
+        if brain.permissions.requires_approval(tool_name, tool_args):
+            confirm = input(f"  Allow {tool_name}({tool_args})? [y/N] ").strip().lower()
+            if confirm != "y":
+                print("  Skipped.\n")
                 continue
 
-            action = _parse_response(raw)
+        t0 = time.monotonic()
+        result = brain.tools.dispatch(tool_name, tool_args)
+        elapsed = time.monotonic() - t0
 
-            response_text = action.get("response")
-            if response_text and action.get("action") is None:
-                print(f"\nCTO> {response_text}\n")
-                conversation.append({"role": "assistant", "content": response_text})
-                continue
+        output = result.output
+        if len(output) > 3000:
+            output = output[:3000] + "\n... (truncated)"
+        safe = output.encode("ascii", errors="replace").decode("ascii")
 
-            tool_name = action.get("action")
-            if not tool_name:
-                msg = action.get("reasoning", "No action determined.")
-                print(f"\nCTO> {msg}\n")
-                conversation.append({"role": "assistant", "content": msg})
-                continue
+        status = "OK" if result.success else "FAILED"
+        print(f"\nCTO> [{tool_name}] {status} ({elapsed:.1f}s)")
+        print(f"{safe[:2000]}\n")
 
-            tool_args = action.get("args", {})
-
-            if brain.permissions.is_blocked(tool_name, tool_args):
-                msg = f"[Blocked] {tool_name} is not allowed."
-                print(f"\nCTO> {msg}\n")
-                conversation.append({"role": "assistant", "content": msg})
-                continue
-
-            if brain.permissions.requires_approval(tool_name, tool_args):
-                confirm = input(f"  Allow {tool_name}({tool_args})? [y/N] ").strip().lower()
-                if confirm != "y":
-                    print("  Skipped.\n")
-                    continue
-
-            t0 = time.monotonic()
-            result = brain.tools.dispatch(tool_name, tool_args)
-            elapsed = time.monotonic() - t0
-
-            output = result.output
-            if len(output) > 3000:
-                output = output[:3000] + "\n... (truncated)"
-            safe = output.encode("ascii", errors="replace").decode("ascii")
-
-            status = "OK" if result.success else "FAILED"
-            print(f"\nCTO> [{tool_name}] {status} ({elapsed:.1f}s)")
-            print(f"{safe[:2000]}\n")
-
-            conversation.append({
-                "role": "assistant",
-                "content": f"[{tool_name}] {output[:500]}",
-            })
-
-    finally:
-        pass
+        conversation.append({
+            "role": "assistant",
+            "content": f"[{tool_name}] {output[:500]}",
+        })
 
 
 def _parse_response(raw: str) -> dict:
