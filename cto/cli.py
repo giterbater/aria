@@ -1,100 +1,182 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import signal
 import sys
+import time
 from pathlib import Path
 
 from .config import CTOConfig
+
+
+def _validate_environment(config: CTOConfig) -> list[str]:
+    """Validate the environment and return list of issues (empty = all good)."""
+    issues = []
+
+    repo = config.repo_path_resolved()
+    if not repo.is_dir():
+        issues.append(f"Repository not found: {repo}")
+    elif not (repo / ".git").exists():
+        issues.append(f"Not a git repository: {repo}")
+
+    try:
+        result = __import__("subprocess").run(
+            ["git", "--version"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            issues.append("git not available")
+    except FileNotFoundError:
+        issues.append("git not installed")
+
+    python_ok = False
+    for py in [sys.executable, "python", "python3"]:
+        try:
+            result = __import__("subprocess").run(
+                [py, "-c", "import pytest; print(pytest.__version__)"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                python_ok = True
+                break
+        except (FileNotFoundError, __import__("subprocess").TimeoutExpired):
+            continue
+    if not python_ok:
+        issues.append("pytest not available — run: pip install pytest")
+
+    try:
+        import httpx
+        resp = httpx.get(f"{config.ollama_base_url}/api/tags", timeout=5)
+        if resp.status_code == 200:
+            models = [m.get("name", "") for m in resp.json().get("models", [])]
+            if not any(config.model in m for m in models):
+                issues.append(
+                    f"Model '{config.model}' not found in Ollama. "
+                    f"Available: {', '.join(models[:5]) or '(none)'}. "
+                    f"Run: ollama pull {config.model}"
+                )
+        else:
+            issues.append(f"Ollama responded with status {resp.status_code}")
+    except Exception:
+        issues.append(f"Cannot reach Ollama at {config.ollama_base_url} — is it running?")
+
+    return issues
 
 
 def _interactive_mode(brain) -> None:
     print("\n=== ARIA CTO Interactive Mode ===")
     print("Type a task and press Enter. Type 'quit' or 'exit' to stop.\n")
 
-    while True:
-        try:
-            user_input = input("You> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nExiting.")
-            break
+    conversation: list[dict[str, str]] = []
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-        if not user_input:
-            continue
-        if user_input.lower() in ("quit", "exit", "q"):
-            print("Goodbye.")
-            break
+    try:
+        while True:
+            try:
+                user_input = input("You> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nExiting.")
+                break
 
-        if brain.llm is None:
-            print("[Error] No LLM available. Cannot process requests.")
-            continue
+            if not user_input:
+                continue
+            if user_input.lower() in ("quit", "exit", "q"):
+                print("Goodbye.")
+                break
 
-        print(f"\n[CTO] Processing: {user_input}")
-
-        import asyncio
-
-        prompt = (
-            f"You are ARIA, an autonomous CTO. The user asks you to: {user_input}\n\n"
-            f"Available tools (use EXACT names):\n"
-            f"- read_file: read a file (args: path)\n"
-            f"- search_code: search for patterns (args: pattern, path)\n"
-            f"- list_files: list directory contents (args: path)\n"
-            f"- get_structure: project tree (args: path)\n"
-            f"- run_command: run a shell command (args: command)\n"
-            f"- run_tests: run pytest (args: path)\n"
-            f"- apply_edit: edit a file (args: path, old_string, new_string)\n"
-            f"- create_file: create a file (args: path, content)\n\n"
-            f"You MUST use a tool to complete this task. Respond with JSON:\n"
-            f'{{"action": "<tool_name>", "args": {{"path": "..."}}, "reasoning": "..."}}\n\n'
-            f"Example: To read main.py, respond:\n"
-            f'{{"action": "read_file", "args": {{"path": "main.py"}}, "reasoning": "reading the file"}}'
-        )
-
-        try:
-            raw = asyncio.run(
-                brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
-            )
-        except Exception as exc:
-            print(f"[Error] LLM failed: {exc}")
-            continue
-
-        action = _parse_response(raw)
-
-        response_text = action.get("response")
-        if response_text and action.get("action") is None:
-            print(f"\nCTO> {response_text}\n")
-            continue
-
-        tool_name = action.get("action")
-        if not tool_name:
-            print(f"\nCTO> {action.get('reasoning', 'No action determined.')}\n")
-            continue
-
-        tool_args = action.get("args", {})
-
-        if brain.permissions.is_blocked(tool_name, tool_args):
-            print(f"\nCTO> [Blocked] {tool_name} is not allowed.\n")
-            continue
-
-        if brain.permissions.requires_approval(tool_name, tool_args):
-            confirm = input(f"  Allow {tool_name}({tool_args})? [y/N] ").strip().lower()
-            if confirm != "y":
-                print("  Skipped.\n")
+            if brain.llm is None:
+                print("[Error] No LLM available. Cannot process requests.")
                 continue
 
-        result = brain.tools.dispatch(tool_name, tool_args)
+            print(f"\n[CTO] Processing: {user_input}")
 
-        if result.success:
+            conversation.append({"role": "user", "content": user_input})
+
+            tool_names = ", ".join(brain.tools.known_tools())
+            history_text = ""
+            if len(conversation) > 1:
+                recent = conversation[-6:]
+                history_text = "\n".join(
+                    f"{'User' if m['role'] == 'user' else 'CTO'}: {m['content'][:200]}"
+                    for m in recent[:-1]
+                )
+                history_text = f"\n\nConversation so far:\n{history_text}\n"
+
+            prompt = (
+                f"You are ARIA, an autonomous CTO. "
+                f"EXACT TOOL NAMES: {tool_names}\n"
+                f"{history_text}\n"
+                f"Current request: {user_input}\n\n"
+                f"Use a tool. Respond with JSON:\n"
+                f'{{"action": "<tool_name>", "args": {{"path": "..."}}, "reasoning": "..."}}\n'
+                f"Example: {json.dumps({'action': 'read_file', 'args': {'path': 'main.py'}, 'reasoning': 'reading file'})}"
+            )
+
+            try:
+                raw = loop.run_until_complete(
+                    brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
+                )
+            except Exception as exc:
+                print(f"[Error] LLM failed: {exc}")
+                conversation.pop()
+                continue
+
+            action = _parse_response(raw)
+
+            response_text = action.get("response")
+            if response_text and action.get("action") is None:
+                print(f"\nCTO> {response_text}\n")
+                conversation.append({"role": "assistant", "content": response_text})
+                continue
+
+            tool_name = action.get("action")
+            if not tool_name:
+                msg = action.get("reasoning", "No action determined.")
+                print(f"\nCTO> {msg}\n")
+                conversation.append({"role": "assistant", "content": msg})
+                continue
+
+            tool_args = action.get("args", {})
+
+            if brain.permissions.is_blocked(tool_name, tool_args):
+                msg = f"[Blocked] {tool_name} is not allowed."
+                print(f"\nCTO> {msg}\n")
+                conversation.append({"role": "assistant", "content": msg})
+                continue
+
+            if brain.permissions.requires_approval(tool_name, tool_args):
+                confirm = input(f"  Allow {tool_name}({tool_args})? [y/N] ").strip().lower()
+                if confirm != "y":
+                    print("  Skipped.\n")
+                    continue
+
+            t0 = time.monotonic()
+            result = brain.tools.dispatch(tool_name, tool_args)
+            elapsed = time.monotonic() - t0
+
             output = result.output
             if len(output) > 3000:
                 output = output[:3000] + "\n... (truncated)"
             safe = output.encode("ascii", errors="replace").decode("ascii")
-            print(f"\nCTO> [{tool_name}] {safe[:2000]}\n")
-        else:
-            safe = result.output.encode("ascii", errors="replace").decode("ascii")
-            print(f"\nCTO> [{tool_name} failed] {safe[:1000]}\n")
+
+            status = "OK" if result.success else "FAILED"
+            print(f"\nCTO> [{tool_name}] {status} ({elapsed:.1f}s)")
+            print(f"{safe[:2000]}\n")
+
+            conversation.append({
+                "role": "assistant",
+                "content": f"[{tool_name}] {output[:500]}",
+            })
+
+    finally:
+        try:
+            loop.run_until_complete(brain.llm.close()) if brain.llm else None
+        except Exception:
+            pass
+        loop.close()
 
 
 def _parse_response(raw: str) -> dict:
@@ -121,53 +203,16 @@ Examples:
   python -m cto --repo /path/to/project --model llama3:70b
         """,
     )
-    parser.add_argument(
-        "--repo",
-        default=".",
-        help="Path to the repository to manage (default: current directory)",
-    )
-    parser.add_argument(
-        "--model",
-        default="deepseek-coder-v2:16b",
-        help="Ollama model name (default: deepseek-coder-v2:16b)",
-    )
-    parser.add_argument(
-        "--ollama-url",
-        default="http://localhost:11434",
-        help="Ollama API base URL (default: http://localhost:11434)",
-    )
-    parser.add_argument(
-        "--single-cycle",
-        action="store_true",
-        help="Run a single cycle and exit",
-    )
-    parser.add_argument(
-        "--interactive",
-        action="store_true",
-        help="Interactive chat mode — talk to the CTO",
-    )
-    parser.add_argument(
-        "--auto-approve",
-        action="store_true",
-        help="Auto-approve all non-blocked operations",
-    )
-    parser.add_argument(
-        "--max-cycles",
-        type=int,
-        default=None,
-        help="Maximum number of cycles before stopping",
-    )
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=30,
-        help="Seconds between cycles in continuous mode (default: 30)",
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose logging",
-    )
+    parser.add_argument("--repo", default=".", help="Repository path")
+    parser.add_argument("--model", default="deepseek-coder-v2:16b", help="Ollama model")
+    parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama URL")
+    parser.add_argument("--single-cycle", action="store_true", help="Run one cycle and exit")
+    parser.add_argument("--interactive", action="store_true", help="Interactive chat mode")
+    parser.add_argument("--auto-approve", action="store_true", help="Auto-approve operations")
+    parser.add_argument("--max-cycles", type=int, default=None, help="Max cycles")
+    parser.add_argument("--interval", type=int, default=30, help="Seconds between cycles")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+    parser.add_argument("--skip-validation", action="store_true", help="Skip environment checks")
 
     args = parser.parse_args()
 
@@ -193,11 +238,19 @@ Examples:
         single_cycle=args.single_cycle,
     )
 
+    if not args.skip_validation:
+        issues = _validate_environment(config)
+        if issues:
+            print("Environment validation failed:\n")
+            for issue in issues:
+                print(f"  - {issue}")
+            print("\nFix the above and retry. Use --skip-validation to bypass.")
+            sys.exit(1)
+
     from .brain import CTOBrain
     brain = CTOBrain(config)
 
     def _shutdown(signum: int, frame) -> None:
-        logging.getLogger("aria.cto.cli").info("Received signal %d, stopping...", signum)
         brain.stop()
 
     signal.signal(signal.SIGINT, _shutdown)

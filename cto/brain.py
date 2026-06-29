@@ -153,9 +153,11 @@ class CTOBrain:
     def shutdown(self) -> None:
         self.project_memory.close()
         if self._llm and hasattr(self._llm, "close"):
-            import asyncio
             try:
-                asyncio.get_event_loop().run_until_complete(self._llm.close())
-            except RuntimeError:
+                import asyncio
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self._llm.close())
+                loop.close()
+            except Exception:
                 pass
         logger.info("CTOBrain shut down")

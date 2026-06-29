@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -9,21 +10,38 @@ from .state import CycleState
 logger = logging.getLogger("aria.cto.loop")
 
 
-class CTOLoop:
-    """The 7-phase autonomous cycle: inspect -> choose -> execute -> test -> review -> commit -> remember.
+def _run_async(coro) -> Any:
+    """Run an async coroutine from sync code. Creates a new loop if needed."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
 
-    This is the core execution engine. It receives a configured brain and
-    runs cycles until stopped.
-    """
+    if loop is not None and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result()
+
+    try:
+        return asyncio.run(coro)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+
+class CTOLoop:
+    """The 7-phase autonomous cycle: inspect -> choose -> execute -> test -> review -> commit -> remember."""
 
     def __init__(self, brain: Any) -> None:
         self._brain = brain
         self._running = False
 
     def run_single_cycle(self) -> CycleState:
-        """Execute one complete autonomous cycle."""
         state = CycleState()
-
         try:
             state = self._phase_inspect(state)
             state = self._phase_choose(state)
@@ -37,38 +55,27 @@ class CTOLoop:
         except Exception as exc:
             logger.exception("Cycle %s failed", state.cycle_id)
             state = state.set_error(str(exc))
-
         return state
 
     def run_continuous(self, interval_seconds: int = 30, max_cycles: int | None = None) -> None:
-        """Run cycles continuously until stopped."""
         import time
-
         self._running = True
         cycle_count = 0
-
         logger.info("Starting continuous CTO loop (interval=%ds)", interval_seconds)
 
         while self._running:
             if max_cycles and cycle_count >= max_cycles:
                 logger.info("Reached max cycles (%d), stopping", max_cycles)
                 break
-
             state = self.run_single_cycle()
             cycle_count += 1
-
             logger.info(
                 "Cycle %s completed (phase=%s, actions=%d, files=%d, error=%s)",
-                state.cycle_id,
-                state.phase,
-                len(state.actions_taken),
-                len(state.files_modified),
-                state.error,
+                state.cycle_id, state.phase, len(state.actions_taken),
+                len(state.files_modified), state.error,
             )
-
             if not self._running:
                 break
-
             time.sleep(interval_seconds)
 
         logger.info("CTO loop stopped after %d cycles", cycle_count)
@@ -127,30 +134,24 @@ class CTOLoop:
         logger.debug("Phase: choose")
 
         if self._brain.llm is None:
-            state = state.set_error("No LLM configured — cannot choose action")
+            state = state.set_error("No LLM configured")
             return state
 
         prompt = self._brain.build_choose_prompt()
-        try:
-            import asyncio
-            raw = asyncio.get_event_loop().run_until_complete(
-                self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-            )
-        except RuntimeError:
-            raw = asyncio.run(
-                self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-            )
+        raw = _run_async(
+            self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
+        )
 
         action = self._parse_llm_action(raw)
         tool_name = action.get("action", "")
         known = self._brain.tools.known_tools()
 
         if tool_name and tool_name not in known:
-            logger.warning("LLM chose unknown tool '%s', falling back to read_file", tool_name)
+            logger.warning("LLM chose unknown tool '%s'", tool_name)
             action = {
                 "action": "read_file",
                 "args": {"path": self._brain.config.repo_path + "/cto/brain.py"},
-                "reasoning": f"LLM suggested '{tool_name}' which is not available. Defaulting to read_file.",
+                "reasoning": f"LLM suggested '{tool_name}' which is not available.",
             }
 
         if tool_name == "read_file":
@@ -206,18 +207,14 @@ class CTOLoop:
         if self._brain.permissions.is_blocked(tool_name, tool_args):
             logger.warning("Tool %s is blocked by permissions", tool_name)
             state = state.record_action({
-                "tool": tool_name,
-                "status": "blocked",
-                "reason": "permission denied",
+                "tool": tool_name, "status": "blocked", "reason": "permission denied",
             })
             return state
 
         result = self._brain.tools.dispatch(tool_name, tool_args)
         action_record = {
-            "tool": tool_name,
-            "args": tool_args,
-            "success": result.success,
-            "output_preview": result.output[:500],
+            "tool": tool_name, "args": tool_args,
+            "success": result.success, "output_preview": result.output[:500],
         }
         state = state.record_action(action_record)
 
@@ -243,10 +240,8 @@ class CTOLoop:
 
         response = self._brain.specialist_manager.delegate(request)
         state = state.record_action({
-            "tool": "delegate",
-            "specialist": specialist,
-            "status": response.status,
-            "summary": response.summary,
+            "tool": "delegate", "specialist": specialist,
+            "status": response.status, "summary": response.summary,
         })
 
         if response.status == "success" and response.files_modified:
@@ -296,15 +291,9 @@ class CTOLoop:
         diff_result = self._brain.git.diff(self._brain.config.repo_path)
         prompt = self._brain.build_review_prompt(diff_result.output)
 
-        try:
-            import asyncio
-            raw = asyncio.get_event_loop().run_until_complete(
-                self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-            )
-        except RuntimeError:
-            raw = asyncio.run(
-                self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-            )
+        raw = _run_async(
+            self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
+        )
 
         review = self._parse_llm_review(raw)
         approved = review.get("approved", True)
@@ -390,7 +379,7 @@ class CTOLoop:
                 text = text.split("```")[1].split("```")[0]
             return json.loads(text)
         except (json.JSONDecodeError, IndexError):
-            logger.warning("Failed to parse LLM action, defaulting to idle")
+            logger.warning("Failed to parse LLM action")
             return {"action": "", "args": {}, "reasoning": "parse failure"}
 
     def _parse_llm_review(self, raw: str) -> dict:
@@ -402,7 +391,7 @@ class CTOLoop:
                 text = text.split("```")[1].split("```")[0]
             return json.loads(text)
         except (json.JSONDecodeError, IndexError):
-            return {"approved": True, "summary": "review parse failure, defaulting to approve"}
+            return {"approved": True, "summary": "review parse failure"}
 
     def _generate_commit_message(self, state: CycleState) -> str:
         files = ", ".join(state.files_modified[:5])
