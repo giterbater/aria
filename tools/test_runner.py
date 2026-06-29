@@ -10,7 +10,13 @@ from .interfaces import ToolResult
 
 def _find_python_with_pytest() -> str | None:
     """Find a Python executable that has pytest installed. Returns None if not found."""
+    import glob as _glob
     candidates = [sys.executable, "python", "python3"]
+    for pattern in [
+        r"C:\Users\*\AppData\Local\Programs\Python\Python3*\python.exe",
+        r"C:\Python3*\python.exe",
+    ]:
+        candidates.extend(_glob.glob(pattern))
     for py in candidates:
         try:
             result = subprocess.run(

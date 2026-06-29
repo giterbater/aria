@@ -11,6 +11,8 @@ from pathlib import Path
 
 from .config import CTOConfig
 
+logger = logging.getLogger("aria.cto.cli")
+
 
 def _validate_environment(config: CTOConfig) -> list[str]:
     """Validate the environment and return list of issues (empty = all good)."""
@@ -32,7 +34,15 @@ def _validate_environment(config: CTOConfig) -> list[str]:
         issues.append("git not installed")
 
     python_ok = False
-    for py in [sys.executable, "python", "python3"]:
+    found_py = None
+    candidates = [sys.executable, "python", "python3"]
+    import glob as _glob
+    for pattern in [
+        r"C:\Users\*\AppData\Local\Programs\Python\Python3*\python.exe",
+        r"C:\Python3*\python.exe",
+    ]:
+        candidates.extend(_glob.glob(pattern))
+    for py in candidates:
         try:
             result = __import__("subprocess").run(
                 [py, "-c", "import pytest; print(pytest.__version__)"],
@@ -40,11 +50,14 @@ def _validate_environment(config: CTOConfig) -> list[str]:
             )
             if result.returncode == 0:
                 python_ok = True
+                found_py = py
                 break
         except (FileNotFoundError, __import__("subprocess").TimeoutExpired):
             continue
     if not python_ok:
         issues.append("pytest not available — run: pip install pytest")
+    else:
+        logger.info("Found pytest via: %s", found_py)
 
     try:
         import httpx
