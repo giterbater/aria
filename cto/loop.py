@@ -87,16 +87,37 @@ class CTOLoop:
         repo_path = self._brain.config.repo_path
 
         git_status = self._brain.git.status(repo_path)
-        structure = self._brain.tools.dispatch("get_structure", {"path": repo_path, "max_depth": 2})
+        structure = self._brain.tools.dispatch("get_structure", {"path": repo_path, "max_depth": 3})
+        file_list = self._brain.tools.dispatch("list_files", {"path": repo_path, "recursive": True, "pattern": "*.py"})
         recent_decisions = self._brain.project_memory.get_recent_decisions(limit=5)
+
+        todos = self._brain.tools.dispatch("search_code", {
+            "pattern": "TODO|FIXME|HACK|XXX|BUG",
+            "path": repo_path,
+            "include": "*.py",
+            "max_results": 10,
+        })
+
+        last_actions = []
+        for d in recent_decisions[:3]:
+            for a in d.get("value", {}).get("actions", []):
+                tool = a.get("tool", "?")
+                args = a.get("args", {})
+                if tool == "read_file":
+                    last_actions.append(f"read_file({args.get('path', '?')})")
+                else:
+                    last_actions.append(tool)
 
         context = {
             "git_status": git_status.output,
             "project_structure": structure.output,
+            "python_files": file_list.output if file_list.success else "(none)",
             "recent_decisions": [
                 {"action": d.get("key"), "outcome": d.get("value", {}).get("outcome", "unknown")}
                 for d in recent_decisions
             ],
+            "todos_found": todos.output if todos.success else "(none)",
+            "last_actions_done": ", ".join(last_actions) if last_actions else "(none)",
         }
         self._brain.context = context
         return state
@@ -121,6 +142,45 @@ class CTOLoop:
             )
 
         action = self._parse_llm_action(raw)
+        tool_name = action.get("action", "")
+        known = self._brain.tools.known_tools()
+
+        if tool_name and tool_name not in known:
+            logger.warning("LLM chose unknown tool '%s', falling back to read_file", tool_name)
+            action = {
+                "action": "read_file",
+                "args": {"path": self._brain.config.repo_path + "/cto/brain.py"},
+                "reasoning": f"LLM suggested '{tool_name}' which is not available. Defaulting to read_file.",
+            }
+
+        if tool_name == "read_file":
+            target = action.get("args", {}).get("path", "")
+            recent_files = set()
+            for d in self._brain.project_memory.get_recent_decisions(limit=3):
+                for a in d.get("value", {}).get("actions", []):
+                    if a.get("tool") == "read_file":
+                        recent_files.add(a.get("args", {}).get("path", ""))
+
+            if target in recent_files:
+                files_result = self._brain.tools.dispatch("list_files", {
+                    "path": self._brain.config.repo_path,
+                    "recursive": True,
+                    "pattern": "*.py",
+                })
+                if files_result.success:
+                    all_files = [
+                        f for f in files_result.output.splitlines()
+                        if f.endswith(".py") and f not in recent_files
+                    ]
+                    if all_files:
+                        import random
+                        pick = random.choice(all_files[:20])
+                        action = {
+                            "action": "read_file",
+                            "args": {"path": pick},
+                            "reasoning": f"Switching to {pick} — already read the previous file.",
+                        }
+
         self._brain.current_action = action
         logger.info("Chose action: %s", json.dumps(action, indent=2))
         return state
