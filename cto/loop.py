@@ -33,6 +33,13 @@ def _run_async(coro) -> Any:
             loop.close()
 
 
+def _llm_generate(llm, prompt: str, max_tokens: int = 1024, temperature: float = 0.3) -> str:
+    """Call LLM, preferring sync path to avoid event loop issues."""
+    if hasattr(llm, "generate_sync"):
+        return llm.generate_sync(prompt, max_tokens=max_tokens, temperature=temperature)
+    return _run_async(llm.generate(prompt, max_tokens=max_tokens, temperature=temperature))
+
+
 class CTOLoop:
     """The 7-phase autonomous cycle: inspect -> choose -> execute -> test -> review -> commit -> remember."""
 
@@ -93,17 +100,33 @@ class CTOLoop:
 
         repo_path = self._brain.config.repo_path
 
-        git_status = self._brain.git.status(repo_path)
-        structure = self._brain.tools.dispatch("get_structure", {"path": repo_path, "max_depth": 3})
-        file_list = self._brain.tools.dispatch("list_files", {"path": repo_path, "recursive": True, "pattern": "*.py"})
+        git_status = self._brain.cached(
+            "git_status",
+            lambda: self._brain.git.status(repo_path),
+            ttl=5.0,
+        )
+        structure = self._brain.cached(
+            "structure",
+            lambda: self._brain.tools.dispatch("get_structure", {"path": repo_path, "max_depth": 3}),
+            ttl=60.0,
+        )
+        file_list = self._brain.cached(
+            "file_list",
+            lambda: self._brain.tools.dispatch("list_files", {"path": repo_path, "recursive": True, "pattern": "*.py"}),
+            ttl=60.0,
+        )
         recent_decisions = self._brain.project_memory.get_recent_decisions(limit=5)
 
-        todos = self._brain.tools.dispatch("search_code", {
-            "pattern": "TODO|FIXME|HACK|XXX|BUG",
-            "path": repo_path,
-            "include": "*.py",
-            "max_results": 10,
-        })
+        todos = self._brain.cached(
+            "todos",
+            lambda: self._brain.tools.dispatch("search_code", {
+                "pattern": "TODO|FIXME|HACK|XXX|BUG",
+                "path": repo_path,
+                "include": "*.py",
+                "max_results": 10,
+            }),
+            ttl=120.0,
+        )
 
         last_actions = []
         for d in recent_decisions[:3]:
@@ -138,9 +161,7 @@ class CTOLoop:
             return state
 
         prompt = self._brain.build_choose_prompt()
-        raw = _run_async(
-            self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-        )
+        raw = _llm_generate(self._brain.llm, prompt)
 
         action = self._parse_llm_action(raw)
         tool_name = action.get("action", "")
@@ -291,9 +312,7 @@ class CTOLoop:
         diff_result = self._brain.git.diff(self._brain.config.repo_path)
         prompt = self._brain.build_review_prompt(diff_result.output)
 
-        raw = _run_async(
-            self._brain.llm.generate(prompt, max_tokens=1024, temperature=0.3)
-        )
+        raw = _llm_generate(self._brain.llm, prompt)
 
         review = self._parse_llm_review(raw)
         approved = review.get("approved", True)

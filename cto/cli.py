@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import logging
 import signal
@@ -83,8 +82,6 @@ def _interactive_mode(brain) -> None:
     print("Type a task and press Enter. Type 'quit' or 'exit' to stop.\n")
 
     conversation: list[dict[str, str]] = []
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
 
     try:
         while True:
@@ -129,9 +126,12 @@ def _interactive_mode(brain) -> None:
             )
 
             try:
-                raw = loop.run_until_complete(
-                    brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
-                )
+                if hasattr(brain.llm, "generate_sync"):
+                    raw = brain.llm.generate_sync(prompt, max_tokens=2048, temperature=0.3)
+                else:
+                    raw = loop.run_until_complete(
+                        brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
+                    )
             except Exception as exc:
                 print(f"[Error] LLM failed: {exc}")
                 conversation.pop()
@@ -185,11 +185,7 @@ def _interactive_mode(brain) -> None:
             })
 
     finally:
-        try:
-            loop.run_until_complete(brain.llm.close()) if brain.llm else None
-        except Exception:
-            pass
-        loop.close()
+        pass
 
 
 def _parse_response(raw: str) -> dict:

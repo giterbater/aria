@@ -38,6 +38,8 @@ class CTOBrain:
         self.context: dict[str, Any] = {}
         self.current_action: dict[str, Any] = {}
         self.test_failures: str | None = None
+        self._cache: dict[str, tuple[float, Any]] = {}
+        self._cache_ttl: float = 30.0
 
         self._loop = CTOLoop(self)
 
@@ -65,6 +67,25 @@ class CTOBrain:
     @property
     def llm(self) -> Any:
         return self._llm
+
+    def cached(self, key: str, compute_fn, ttl: float | None = None):
+        """Return cached value or compute and cache it."""
+        import time
+        ttl = ttl or self._cache_ttl
+        now = time.monotonic()
+        if key in self._cache:
+            ts, val = self._cache[key]
+            if now - ts < ttl:
+                return val
+        val = compute_fn()
+        self._cache[key] = (now, val)
+        return val
+
+    def invalidate_cache(self, key: str | None = None) -> None:
+        if key:
+            self._cache.pop(key, None)
+        else:
+            self._cache.clear()
 
     def build_choose_prompt(self) -> str:
         from prompts.cto_system import CTO_SYSTEM_PROMPT, TOOL_DESCRIPTIONS_TEMPLATE
