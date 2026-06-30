@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from cto.cli import _parse_response, _validate_environment
 from cto.config import CTOConfig
-from cto.loop import _run_async
 
 
 class TestParseResponse:
@@ -24,22 +23,6 @@ class TestParseResponse:
         result = _parse_response(raw)
         assert result["action"] is None
         assert result["response"] == "This is just plain text"
-
-
-class TestRunAsync:
-    @pytest.mark.asyncio
-    async def test_run_async_basic(self):
-        async def coro():
-            return 42
-        result = _run_async(coro())
-        assert result == 42
-
-    @pytest.mark.asyncio
-    async def test_run_async_with_value(self):
-        async def coro():
-            return {"status": "ok"}
-        result = _run_async(coro())
-        assert result == {"status": "ok"}
 
 
 class TestEnvironmentValidation:

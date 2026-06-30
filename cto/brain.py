@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from .config import CTOConfig
@@ -18,7 +19,8 @@ class CTOBrain:
     """The central orchestrator for the ARIA CTO autonomous agent.
 
     Owns the tool registry, permission policy, git operations, project memory,
-    specialist manager, and the autonomous loop.
+    specialist manager, and the autonomous loop. The LLM is accessed through
+    a provider abstraction — the CTO never knows which backend is in use.
     """
 
     def __init__(self, config: CTOConfig) -> None:
@@ -32,45 +34,90 @@ class CTOBrain:
         )
         self.specialist_manager = SpecialistManager()
 
-        self._llm: Any = None
-        self._init_llm()
+        self._llm = self._init_provider()
+        self._cache: dict[str, tuple[float, Any]] = {}
+        self._cache_ttl: float = 30.0
 
         self.context: dict[str, Any] = {}
         self.current_action: dict[str, Any] = {}
         self.test_failures: str | None = None
-        self._cache: dict[str, tuple[float, Any]] = {}
-        self._cache_ttl: float = 30.0
 
         self._loop = CTOLoop(self)
 
         logger.info(
-            "CTOBrain initialized (repo=%s, model=%s)",
+            "CTOBrain initialized (repo=%s, provider=%s, model=%s)",
             config.repo_path,
+            config.provider,
             config.model,
         )
 
-    def _init_llm(self) -> None:
+    def _init_provider(self):
+        """Initialize the LLM provider with automatic failover."""
+        from language_cortex.providers import create_provider, FailoverProvider
+        from language_cortex.providers.base import ProviderConfig
+
+        primary_config = ProviderConfig(
+            provider=self.config.provider,
+            model=self.config.model,
+            api_key=self.config.resolve_api_key(),
+            base_url=self.config.base_url,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+            top_p=self.config.top_p,
+            timeout=self.config.timeout,
+            max_retries=self.config.max_retries,
+        )
+
         try:
-            from language_cortex.models.ollama import OllamaModel
-            self._llm = OllamaModel(
-                base_url=self.config.ollama_base_url,
-                model=self.config.model,
-            )
-            logger.info("Ollama model loaded: %s", self.config.model)
-        except ImportError:
-            logger.warning("httpx not available, LLM disabled")
-            self._llm = None
+            primary = create_provider(primary_config)
+            logger.info("Primary provider: %s (model=%s)", primary_config.provider, primary_config.model)
         except Exception as exc:
-            logger.warning("Failed to init Ollama: %s", exc)
-            self._llm = None
+            logger.warning("Failed to init primary provider %s: %s", primary_config.provider, exc)
+            primary = None
+
+        fallback = None
+        if self.config.fallback_provider and self.config.fallback_provider != self.config.provider:
+            fallback_config = ProviderConfig(
+                provider=self.config.fallback_provider,
+                model=self.config.fallback_model,
+                base_url=self.config.ollama_base_url,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                timeout=self.config.timeout,
+            )
+            try:
+                fallback = create_provider(fallback_config)
+                logger.info("Fallback provider: %s", fallback_config.provider)
+            except Exception as exc:
+                logger.warning("Failed to init fallback provider %s: %s", fallback_config.provider, exc)
+
+        if primary is not None:
+            return FailoverProvider(
+                primary=primary,
+                fallback=fallback,
+                max_retries=self.config.max_retries,
+            )
+
+        if fallback is not None:
+            logger.info("Using fallback provider as primary")
+            return fallback
+
+        logger.warning("No LLM provider available")
+        return None
 
     @property
-    def llm(self) -> Any:
+    def llm(self):
         return self._llm
+
+    def generate(self, prompt: str, *, max_tokens: int = 2048, temperature: float = 0.3):
+        """Generate a response from the LLM. Provider-agnostic."""
+        if self._llm is None:
+            from language_cortex.providers.base import LanguageResponse
+            return LanguageResponse.fail("No LLM provider configured")
+        return self._llm.generate(prompt, max_tokens=max_tokens, temperature=temperature)
 
     def cached(self, key: str, compute_fn, ttl: float | None = None):
         """Return cached value or compute and cache it."""
-        import time
         ttl = ttl or self._cache_ttl
         now = time.monotonic()
         if key in self._cache:
@@ -119,8 +166,6 @@ class CTOBrain:
             )
 
         tool_names = ", ".join(self.tools.known_tools())
-
-        last = self.context.get("last_actions_done", "")
 
         sections = []
         sections.append(f"EXACT TOOL NAMES (use one of these): {tool_names}")
@@ -175,10 +220,7 @@ class CTOBrain:
         self.project_memory.close()
         if self._llm and hasattr(self._llm, "close"):
             try:
-                import asyncio
-                loop = asyncio.new_event_loop()
-                loop.run_until_complete(self._llm.close())
-                loop.close()
+                self._llm.close()
             except Exception:
                 pass
         logger.info("CTOBrain shut down")

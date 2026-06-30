@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -8,36 +7,6 @@ from typing import Any
 from .state import CycleState
 
 logger = logging.getLogger("aria.cto.loop")
-
-
-def _run_async(coro) -> Any:
-    """Run an async coroutine from sync code. Creates a new loop if needed."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop is not None and loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
-
-    try:
-        return asyncio.run(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-
-
-def _llm_generate(llm, prompt: str, max_tokens: int = 1024, temperature: float = 0.3) -> str:
-    """Call LLM, preferring sync path to avoid event loop issues."""
-    if hasattr(llm, "generate_sync"):
-        return llm.generate_sync(prompt, max_tokens=max_tokens, temperature=temperature)
-    return _run_async(llm.generate(prompt, max_tokens=max_tokens, temperature=temperature))
 
 
 class CTOLoop:
@@ -161,7 +130,11 @@ class CTOLoop:
             return state
 
         prompt = self._brain.build_choose_prompt()
-        raw = _llm_generate(self._brain.llm, prompt)
+        resp = self._brain.generate(prompt)
+        if not resp.success:
+            state = state.set_error(resp.error)
+            return state
+        raw = resp.text
 
         action = self._parse_llm_action(raw)
         tool_name = action.get("action", "")
@@ -312,7 +285,11 @@ class CTOLoop:
         diff_result = self._brain.git.diff(self._brain.config.repo_path)
         prompt = self._brain.build_review_prompt(diff_result.output)
 
-        raw = _llm_generate(self._brain.llm, prompt)
+        resp = self._brain.generate(prompt)
+        if not resp.success:
+            state = state.set_review(True)
+            return state
+        raw = resp.text
 
         review = self._parse_llm_review(raw)
         approved = review.get("approved", True)

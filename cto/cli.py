@@ -58,21 +58,31 @@ def _validate_environment(config: CTOConfig) -> list[str]:
     else:
         logger.info("Found pytest via: %s", found_py)
 
-    try:
-        import httpx
-        resp = httpx.get(f"{config.ollama_base_url}/api/tags", timeout=5)
-        if resp.status_code == 200:
-            models = [m.get("name", "") for m in resp.json().get("models", [])]
-            if not any(config.model in m for m in models):
-                issues.append(
-                    f"Model '{config.model}' not found in Ollama. "
-                    f"Available: {', '.join(models[:5]) or '(none)'}. "
-                    f"Run: ollama pull {config.model}"
-                )
-        else:
-            issues.append(f"Ollama responded with status {resp.status_code}")
-    except Exception:
-        issues.append(f"Cannot reach Ollama at {config.ollama_base_url} — is it running?")
+    provider = config.provider.lower()
+    if provider == "nvidia":
+        api_key = config.resolve_api_key()
+        if not api_key:
+            issues.append(
+                "NVIDIA API key not found. Set NVIDIA_API_KEY environment variable "
+                "or pass --api-key."
+            )
+    elif provider == "ollama":
+        try:
+            import httpx
+            ollama_url = config.base_url or config.ollama_base_url
+            resp = httpx.get(f"{ollama_url}/api/tags", timeout=5)
+            if resp.status_code == 200:
+                models = [m.get("name", "") for m in resp.json().get("models", [])]
+                if not any(config.model in m for m in models):
+                    issues.append(
+                        f"Model '{config.model}' not found in Ollama. "
+                        f"Available: {', '.join(models[:5]) or '(none)'}. "
+                        f"Run: ollama pull {config.model}"
+                    )
+            else:
+                issues.append(f"Ollama responded with status {resp.status_code}")
+        except Exception:
+            issues.append(f"Cannot reach Ollama at {config.ollama_base_url} — is it running?")
 
     return issues
 
@@ -166,12 +176,12 @@ def _interactive_mode(brain) -> None:
         )
 
         try:
-            if hasattr(brain.llm, "generate_sync"):
-                raw = brain.llm.generate_sync(prompt, max_tokens=2048, temperature=0.3)
-            else:
-                raw = loop.run_until_complete(
-                    brain.llm.generate(prompt, max_tokens=2048, temperature=0.3)
-                )
+            resp = brain.generate(prompt)
+            if not resp.success:
+                print(f"[Error] LLM failed: {resp.error}")
+                conversation.pop()
+                continue
+            raw = resp.text
         except Exception as exc:
             print(f"[Error] LLM failed: {exc}")
             conversation.pop()
@@ -244,14 +254,17 @@ def main() -> None:
         epilog="""
 Examples:
   python -m cto --repo . --interactive
+  python -m cto --repo . --provider nvidia --model nvidia/llama-3.3-nemotron-super-49b-v1
+  python -m cto --repo . --provider ollama --model deepseek-coder-v2:16b
   python -m cto --repo . --single-cycle
-  python -m cto --repo . --auto-approve
-  python -m cto --repo /path/to/project --model llama3:70b
         """,
     )
     parser.add_argument("--repo", default=".", help="Repository path")
-    parser.add_argument("--model", default="deepseek-coder-v2:16b", help="Ollama model")
-    parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama URL")
+    parser.add_argument("--provider", default="ollama", choices=["ollama", "nvidia"], help="LLM provider")
+    parser.add_argument("--model", default="deepseek-coder-v2:16b", help="Model name")
+    parser.add_argument("--api-key", default="", help="API key (or set NVIDIA_API_KEY env)")
+    parser.add_argument("--base-url", default="", help="Provider base URL")
+    parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama URL (for fallback)")
     parser.add_argument("--single-cycle", action="store_true", help="Run one cycle and exit")
     parser.add_argument("--interactive", action="store_true", help="Interactive chat mode")
     parser.add_argument("--auto-approve", action="store_true", help="Auto-approve operations")
@@ -274,10 +287,16 @@ Examples:
         print(f"Error: {repo_path} is not a directory", file=sys.stderr)
         sys.exit(1)
 
+    fallback_provider = "ollama" if args.provider == "nvidia" else "ollama"
     config = CTOConfig(
         repo_path=repo_path,
-        ollama_base_url=args.ollama_url,
+        provider=args.provider,
         model=args.model,
+        api_key=args.api_key,
+        base_url=args.base_url,
+        ollama_base_url=args.ollama_url,
+        fallback_provider=fallback_provider,
+        fallback_model="deepseek-coder-v2:16b",
         cycle_interval_seconds=args.interval,
         max_cycles=args.max_cycles,
         auto_approve=args.auto_approve,
