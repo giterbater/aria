@@ -1,15 +1,10 @@
 # aria_core/goals.py
 """
-Simple goal representation and manager.
-Goals are lightweight objects that ARIA Core can consult when deciding
-what to do.  The manager keeps a list of active goals and can return
-those that are relevant to a given cue (e.g., the current structured
-input).
+Goal Manager with subtask decomposition, states, and progress tracking.
 
-Milestone 2: an optional :class:`PersistenceProtocol` backend can be
-supplied; if present, every ``add_goal`` / ``remove_goal`` call is
-mirrored to the backend and the manager is hydrated from it on
-construction.
+Goals are long-lived objects that ARIA maintains across sessions.
+Each goal can contain subtasks with dependencies and priorities.
+The manager provides relevance lookup and progress computation.
 """
 
 from __future__ import annotations
@@ -18,33 +13,85 @@ import datetime
 import json
 import sqlite3
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 from aria_core.persistence.interfaces import PersistenceProtocol
 
-if TYPE_CHECKING:  # pragma: no cover – typing only
+if TYPE_CHECKING:
     from aria_core.memory.models import MemoryItem
 
 
-@dataclass(frozen=True)
-class Goal:
-    """A goal that ARIA's internal goal model. """
+class GoalState(str, Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
+    ABANDONED = "abandoned"
+    PAUSED = "paused"
+
+
+@dataclass
+class Subtask:
+    """A single step within a goal."""
     id: str = field(default_factory=lambda: str(__import__('uuid').uuid4()))
-    description: str = ""          # human‑readable description
-    priority: float = 1.0          # higher = more important
-    deadline: Optional[datetime.datetime] = None  # optional time bound
-    # Any extra metadata the caller wants to store (e.g., required resources)
+    description: str = ""
+    state: GoalState = GoalState.ACTIVE
+    priority: float = 1.0
+    depends_on: List[str] = field(default_factory=list)  # subtask IDs
+    result: str = ""  # outcome notes
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
+    completed_at: Optional[datetime.datetime] = None
+
+    def is_ready(self, completed_ids: set[str]) -> bool:
+        """Check if all dependencies are satisfied."""
+        return all(dep in completed_ids for dep in self.depends_on)
+
+
+@dataclass
+class Goal:
+    """A goal with optional subtasks, state, and progress tracking."""
+    id: str = field(default_factory=lambda: str(__import__('uuid').uuid4()))
+    description: str = ""
+    priority: float = 1.0
+    deadline: Optional[datetime.datetime] = None
+    state: GoalState = GoalState.ACTIVE
+    subtasks: List[Subtask] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
+    updated_at: datetime.datetime = field(default_factory=datetime.datetime.now)
+    completed_at: Optional[datetime.datetime] = None
+
+    @property
+    def progress(self) -> float:
+        """Return completion percentage 0.0–1.0."""
+        if not self.subtasks:
+            return 1.0 if self.state == GoalState.COMPLETED else 0.0
+        done = sum(1 for s in self.subtasks if s.state == GoalState.COMPLETED)
+        return done / len(self.subtasks)
+
+    @property
+    def is_complete(self) -> bool:
+        return self.state == GoalState.COMPLETED
+
+    @property
+    def active_subtasks(self) -> List[Subtask]:
+        return [s for s in self.subtasks if s.state == GoalState.ACTIVE]
+
+    @property
+    def next_subtask(self) -> Subtask | None:
+        """Return the highest-priority ready subtask."""
+        completed = {s.id for s in self.subtasks if s.state == GoalState.COMPLETED}
+        ready = [s for s in self.active_subtasks if s.is_ready(completed)]
+        if not ready:
+            return None
+        ready.sort(key=lambda s: s.priority, reverse=True)
+        return ready[0]
 
 
 class GoalManager:
     """
-    Holds the set of active goals and provides relevance lookup.
-
-    Without a ``persistence`` backend, behaviour is identical to the
-    pre-M2 manager: an in-memory list, no on-disk state.  With a
-    backend, every mutation is forwarded and the manager is hydrated
-    from the backend on construction.
+    Manages goals with subtask decomposition, state transitions,
+    and progress tracking. Supports persistence via PersistenceProtocol.
     """
 
     def __init__(
@@ -56,11 +103,7 @@ class GoalManager:
         self._persistence = persistence
         if persistence is not None:
             persistence.initialize()
-            # Hydrate from disk so list_goals / relevant_goals reflect
-            # the persisted state, not the (typically empty) ``goals`` arg.
             self._goals: List[Goal] = persistence.load_all_goals()
-            # Caller-supplied goals are added on top, but only if the
-            # backend did not already know about them.
             existing_ids = {g.id for g in self._goals}
             for g in goals or []:
                 if g.id not in existing_ids:
@@ -70,7 +113,7 @@ class GoalManager:
             self._goals: List[Goal] = list(goals or [])
 
     # -----------------------------------------------------------------
-    # Goal lifecycle (simple add/remove)
+    # Goal lifecycle
     # -----------------------------------------------------------------
     def add_goal(self, goal: Goal) -> None:
         self._goals.append(goal)
@@ -82,46 +125,150 @@ class GoalManager:
         if self._persistence is not None:
             self._persistence.delete_goal(goal_id)
 
-    def list_goals(self) -> List[Goal]:
-        return list(self._goals)
+    def get_goal(self, goal_id: str) -> Goal | None:
+        for g in self._goals:
+            if g.id == goal_id:
+                return g
+        return None
+
+    def list_goals(self, state: GoalState | None = None) -> List[Goal]:
+        if state is None:
+            return list(self._goals)
+        return [g for g in self._goals if g.state == state]
 
     # -----------------------------------------------------------------
-    # Relevance – very light‑weight keyword match.
-    # Replace with a proper embedding‑based search in a production swap.
-    # ------------------------------------------------------------------
+    # State transitions
+    # -----------------------------------------------------------------
+    def complete_goal(self, goal_id: str) -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.state = GoalState.COMPLETED
+        goal.completed_at = datetime.datetime.now()
+        goal.updated_at = datetime.datetime.now()
+        for s in goal.subtasks:
+            if s.state == GoalState.ACTIVE:
+                s.state = GoalState.COMPLETED
+                s.completed_at = datetime.datetime.now()
+        self._save(goal)
+
+    def block_goal(self, goal_id: str, reason: str = "") -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.state = GoalState.BLOCKED
+        goal.metadata["block_reason"] = reason
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    def pause_goal(self, goal_id: str) -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.state = GoalState.PAUSED
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    def resume_goal(self, goal_id: str) -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.state = GoalState.ACTIVE
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    def abandon_goal(self, goal_id: str, reason: str = "") -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.state = GoalState.ABANDONED
+        goal.metadata["abandon_reason"] = reason
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    # -----------------------------------------------------------------
+    # Subtask management
+    # -----------------------------------------------------------------
+    def add_subtask(self, goal_id: str, subtask: Subtask) -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        goal.subtasks.append(subtask)
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    def complete_subtask(self, goal_id: str, subtask_id: str, result: str = "") -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        for s in goal.subtasks:
+            if s.id == subtask_id:
+                s.state = GoalState.COMPLETED
+                s.result = result
+                s.completed_at = datetime.datetime.now()
+                break
+        goal.updated_at = datetime.datetime.now()
+        if goal.progress >= 1.0:
+            goal.state = GoalState.COMPLETED
+            goal.completed_at = datetime.datetime.now()
+        self._save(goal)
+
+    def fail_subtask(self, goal_id: str, subtask_id: str, reason: str = "") -> None:
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            return
+        for s in goal.subtasks:
+            if s.id == subtask_id:
+                s.state = GoalState.BLOCKED
+                s.result = reason
+                break
+        goal.updated_at = datetime.datetime.now()
+        self._save(goal)
+
+    # -----------------------------------------------------------------
+    # Relevance and progress
+    # -----------------------------------------------------------------
     def relevant_goals(self, cue: str, *, limit: int = 5) -> List[Goal]:
-        """
-        Return goals whose description shares any token with *cue*.
-        Ordered by priority (descending).
-        """
         cue_tokens = set(cue.lower().split())
         scored: List[Goal] = []
         for g in self._goals:
+            if g.state in (GoalState.COMPLETED, GoalState.ABANDONED):
+                continue
             desc_tokens = set(g.description.lower().split())
-            if cue_tokens & desc_tokens:          # any overlap
+            if cue_tokens & desc_tokens:
                 scored.append(g)
         scored.sort(key=lambda g: g.priority, reverse=True)
         return scored[:limit]
 
+    def overall_progress(self) -> float:
+        active = [g for g in self._goals if g.state == GoalState.ACTIVE]
+        if not active:
+            return 1.0
+        return sum(g.progress for g in active) / len(active)
+
+    def next_action(self) -> tuple[Goal, Subtask] | None:
+        """Return the highest-priority goal's next ready subtask."""
+        active = [g for g in self._goals if g.state == GoalState.ACTIVE]
+        active.sort(key=lambda g: g.priority, reverse=True)
+        for goal in active:
+            sub = goal.next_subtask
+            if sub is not None:
+                return (goal, sub)
+        return None
+
+    # -----------------------------------------------------------------
+    # Persistence helper
+    # -----------------------------------------------------------------
+    def _save(self, goal: Goal) -> None:
+        if self._persistence is not None:
+            self._persistence.save_goal(goal)
+
 
 # ---------------------------------------------------------------------
-# SQLite-backed implementation of PersistenceProtocol.
-#
-# Lives in the goals module (per the M2 contract, which says
-# ``aria_core/goals.py`` is the right home for ``SQLiteGoalStore``).
-# Other backends can implement the same protocol independently.
+# SQLite-backed persistence
 # ---------------------------------------------------------------------
 class SQLiteGoalStore(PersistenceProtocol):
-    """A SQLite-backed ``PersistenceProtocol`` for goals and memory.
-
-    Uses the standard library's :mod:`sqlite3` only.  Two tables:
-
-    * ``goals`` — one row per goal, ``metadata`` stored as JSON.
-    * ``memory_items`` — see :mod:`aria_core.memory.sqlite_memory_system`
-      for the canonical schema.  This class only touches the ``goals``
-      table; ``memory_items`` access is intentionally left to the
-      dedicated memory backend to keep responsibilities separate.
-    """
+    """SQLite-backed persistence for goals and memory."""
 
     def __init__(self, db_path):
         self._db_path = str(db_path)
@@ -129,9 +276,6 @@ class SQLiteGoalStore(PersistenceProtocol):
         self._conn.row_factory = sqlite3.Row
         self.initialize()
 
-    # ------------------------------------------------------------------
-    # Schema
-    # ------------------------------------------------------------------
     def initialize(self) -> None:
         with self._conn:
             self._conn.executescript(
@@ -141,43 +285,58 @@ class SQLiteGoalStore(PersistenceProtocol):
                     description TEXT NOT NULL,
                     priority REAL NOT NULL,
                     deadline TEXT,
-                    metadata TEXT
+                    state TEXT DEFAULT 'active',
+                    subtasks TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    created_at TEXT,
+                    updated_at TEXT,
+                    completed_at TEXT
                 );
                 """
             )
 
-    # ------------------------------------------------------------------
-    # Goals
-    # ------------------------------------------------------------------
     def save_goal(self, goal: Goal) -> None:
-        deadline_iso = (
-            goal.deadline.isoformat() if goal.deadline is not None else None
-        )
+        deadline_iso = goal.deadline.isoformat() if goal.deadline else None
+        subtasks_json = json.dumps([
+            {
+                "id": s.id, "description": s.description,
+                "state": s.state.value, "priority": s.priority,
+                "depends_on": s.depends_on, "result": s.result,
+                "created_at": s.created_at.isoformat(),
+                "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            }
+            for s in goal.subtasks
+        ])
         metadata_json = json.dumps(goal.metadata or {})
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO goals (id, description, priority, deadline, metadata)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO goals (id, description, priority, deadline, state,
+                    subtasks, metadata, created_at, updated_at, completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     description=excluded.description,
                     priority=excluded.priority,
                     deadline=excluded.deadline,
-                    metadata=excluded.metadata
+                    state=excluded.state,
+                    subtasks=excluded.subtasks,
+                    metadata=excluded.metadata,
+                    created_at=excluded.created_at,
+                    updated_at=excluded.updated_at,
+                    completed_at=excluded.completed_at
                 """,
                 (
-                    goal.id,
-                    goal.description,
-                    float(goal.priority),
-                    deadline_iso,
+                    goal.id, goal.description, float(goal.priority),
+                    deadline_iso, goal.state.value, subtasks_json,
                     metadata_json,
+                    goal.created_at.isoformat(),
+                    goal.updated_at.isoformat(),
+                    goal.completed_at.isoformat() if goal.completed_at else None,
                 ),
             )
 
     def load_all_goals(self) -> List[Goal]:
-        rows = self._conn.execute(
-            "SELECT * FROM goals ORDER BY rowid"
-        ).fetchall()
+        rows = self._conn.execute("SELECT * FROM goals ORDER BY rowid").fetchall()
         goals: List[Goal] = []
         for r in rows:
             deadline = None
@@ -185,47 +344,77 @@ class SQLiteGoalStore(PersistenceProtocol):
                 try:
                     deadline = datetime.datetime.fromisoformat(r["deadline"])
                 except ValueError:
-                    deadline = None
+                    pass
+
+            subtasks = []
+            if r["subtasks"]:
+                try:
+                    for s in json.loads(r["subtasks"]):
+                        completed_at = None
+                        if s.get("completed_at"):
+                            try:
+                                completed_at = datetime.datetime.fromisoformat(s["completed_at"])
+                            except ValueError:
+                                pass
+                        subtasks.append(Subtask(
+                            id=s["id"], description=s["description"],
+                            state=GoalState(s["state"]), priority=s["priority"],
+                            depends_on=s.get("depends_on", []),
+                            result=s.get("result", ""),
+                            created_at=datetime.datetime.fromisoformat(s["created_at"]) if s.get("created_at") else datetime.datetime.now(),
+                            completed_at=completed_at,
+                        ))
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
             metadata = {}
             if r["metadata"]:
                 try:
                     metadata = json.loads(r["metadata"])
                 except json.JSONDecodeError:
-                    metadata = {}
-            goals.append(
-                Goal(
-                    id=r["id"],
-                    description=r["description"],
-                    priority=float(r["priority"]),
-                    deadline=deadline,
-                    metadata=metadata,
-                )
-            )
+                    pass
+
+            created_at = datetime.datetime.now()
+            if r["created_at"]:
+                try:
+                    created_at = datetime.datetime.fromisoformat(r["created_at"])
+                except ValueError:
+                    pass
+
+            updated_at = datetime.datetime.now()
+            if r["updated_at"]:
+                try:
+                    updated_at = datetime.datetime.fromisoformat(r["updated_at"])
+                except ValueError:
+                    pass
+
+            completed_at = None
+            if r["completed_at"]:
+                try:
+                    completed_at = datetime.datetime.fromisoformat(r["completed_at"])
+                except ValueError:
+                    pass
+
+            goals.append(Goal(
+                id=r["id"], description=r["description"],
+                priority=float(r["priority"]), deadline=deadline,
+                state=GoalState(r["state"]) if r["state"] else GoalState.ACTIVE,
+                subtasks=subtasks, metadata=metadata,
+                created_at=created_at, updated_at=updated_at,
+                completed_at=completed_at,
+            ))
         return goals
 
     def delete_goal(self, goal_id: str) -> None:
         with self._conn:
             self._conn.execute("DELETE FROM goals WHERE id=?", (goal_id,))
 
-    # ------------------------------------------------------------------
-    # Memory – delegated to a SQLiteMemorySystem sharing the DB file.
-    # ------------------------------------------------------------------
     def _memory_backend(self):
-        """Lazy accessor; we don't import the SQLiteMemorySystem at
-        module load to keep the dependency surface tight."""
         from aria_core.memory.sqlite_memory_system import SQLiteMemorySystem
         return SQLiteMemorySystem(self._db_path)
 
     def save_memory_items(self, items) -> None:
-        """Forward to a SQLiteMemorySystem bound to the same DB file."""
-        # Local imports keep the goals module free of a hard dependency
-        # on the memory package (avoids any potential import cycle).
-        from aria_core.memory.models import (
-            EpisodicItem,
-            SemanticItem,
-            WorkingMemoryItem,
-        )
-
+        from aria_core.memory.models import EpisodicItem, SemanticItem, WorkingMemoryItem
         backend = self._memory_backend()
         try:
             for it in items:
@@ -236,22 +425,14 @@ class SQLiteGoalStore(PersistenceProtocol):
                 elif isinstance(it, SemanticItem):
                     backend.store_semantic(it)
                 else:
-                    # Bare MemoryItem → treat as episodic so it's at least
-                    # persisted; tests that need strict store semantics
-                    # should use a concrete subclass.
-                    backend.store_episodic(
-                        EpisodicItem(
-                            id=it.id,
-                            timestamp=it.timestamp,
-                            importance=it.importance,
-                            metadata=it.metadata,
-                        )
-                    )
+                    backend.store_episodic(EpisodicItem(
+                        id=it.id, timestamp=it.timestamp,
+                        importance=it.importance, metadata=it.metadata,
+                    ))
         finally:
             backend.close()
 
     def load_memory_items(self, *, store: str, limit: int = 1000):
-        """Forward to a SQLiteMemorySystem bound to the same DB file."""
         backend = self._memory_backend()
         try:
             if store == "working":
@@ -264,18 +445,11 @@ class SQLiteGoalStore(PersistenceProtocol):
         finally:
             backend.close()
 
-    def update_memory_importance(
-        self, item_id: str, new_importance: float
-    ) -> None:
+    def update_memory_importance(self, item_id: str, new_importance: float) -> None:
         backend = self._memory_backend()
         try:
-            # Find the current importance to compute a delta; the
-            # contract only requires clamping, which
-            # SQLiteMemorySystem.update_importance already does after
-            # adding the delta.
             row = backend._conn.execute(
-                "SELECT importance FROM memory_items WHERE id=?",
-                (item_id,),
+                "SELECT importance FROM memory_items WHERE id=?", (item_id,)
             ).fetchone()
             if row is None:
                 return
@@ -290,7 +464,7 @@ class SQLiteGoalStore(PersistenceProtocol):
         except sqlite3.ProgrammingError:
             pass
 
-    def __del__(self) -> None:  # pragma: no cover – best effort
+    def __del__(self) -> None:
         try:
             self._conn.close()
         except Exception:
