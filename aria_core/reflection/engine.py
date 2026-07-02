@@ -4,7 +4,11 @@ import json
 import logging
 from typing import Any, Protocol, runtime_checkable
 
-from .interfaces import Reflection, Lesson, ReflectionType
+from .interfaces import (
+    Reflection, Lesson, ReflectionType,
+    SkillOutcome, ReflectionSummary,
+)
+from .persistence import ReflectionStore
 
 logger = logging.getLogger("aria.reflection")
 
@@ -38,17 +42,25 @@ Return ONLY the JSON object.
 class ReflectionEngine:
     """Reviews outcomes and extracts lessons for future improvement.
 
-    Maintains a history of reflections and provides accumulated
-    knowledge for the decision engine.
+    Integrates with SkillResult for skill-aware reflection.
+    Persists reflections to SQLite for cross-session learning.
+    Provides actionable feedback for the planning/decision engine.
     """
 
-    def __init__(self, llm: LLMProvider | None = None):
+    def __init__(self, llm: LLMProvider | None = None, store: ReflectionStore | None = None):
         self._llm = llm
+        self._store = store or ReflectionStore()
         self._reflections: list[Reflection] = []
         self._lessons: list[Lesson] = []
 
+        # Hydrate from persistence
+        persisted = self._store.load_reflections(limit=100)
+        self._reflections = persisted
+        for r in persisted:
+            self._lessons.extend(r.lessons)
+
     def reflect(self, action: str, result: str, context: dict | None = None) -> Reflection:
-        """Reflect on an action and its result. Returns structured insights."""
+        """Reflect on an action and its result."""
         context = context or {}
 
         if self._llm is not None:
@@ -58,12 +70,37 @@ class ReflectionEngine:
 
         self._reflections.append(reflection)
         self._lessons.extend(reflection.lessons)
+        self._store.save_reflection(reflection)
+
         logger.info(
             "Reflection: %s (%d lessons)",
             reflection.reflection_type.value,
             len(reflection.lessons),
         )
         return reflection
+
+    def reflect_skill(self, outcome: SkillOutcome) -> Reflection:
+        """Reflect on a skill execution outcome."""
+        self._store.save_skill_outcome(
+            skill_name=outcome.skill_name,
+            action=outcome.action,
+            success=outcome.success,
+            duration_ms=outcome.duration_ms,
+            output=outcome.output[:500],
+            errors=outcome.errors,
+            warnings=outcome.warnings,
+            metadata=outcome.metadata,
+        )
+
+        action = f"{outcome.skill_name}.{outcome.action}"
+        result = "success" if outcome.success else f"failed: {'; '.join(outcome.errors)}"
+        context = {
+            "skill": outcome.skill_name,
+            "duration_ms": outcome.duration_ms,
+            "metadata": outcome.metadata,
+        }
+
+        return self.reflect(action, result, context)
 
     def get_reflections(self, limit: int = 20) -> list[Reflection]:
         return self._reflections[-limit:]
@@ -75,18 +112,20 @@ class ReflectionEngine:
         return [l for l in self._lessons if tag_set & set(l.tags)][-limit:]
 
     def get_learned_patterns(self) -> dict[str, int]:
-        """Count lesson tags to find recurring patterns."""
         counts: dict[str, int] = {}
         for lesson in self._lessons:
             for tag in lesson.tags:
                 counts[tag] = counts.get(tag, 0) + 1
         return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
 
-    def summarize(self) -> str:
-        """Generate a summary of accumulated reflections."""
-        if not self._reflections:
-            return "No reflections recorded yet."
+    def get_skill_stats(self, skill_name: str | None = None) -> dict:
+        return self._store.get_skill_stats(skill_name)
 
+    def get_success_rate(self, skill_name: str) -> float:
+        return self._store.get_success_rate(skill_name)
+
+    def get_summary(self) -> ReflectionSummary:
+        """Build a structured summary for the decision engine."""
         total = len(self._reflections)
         successes = sum(1 for r in self._reflections if r.reflection_type == ReflectionType.SUCCESS)
         failures = sum(1 for r in self._reflections if r.reflection_type == ReflectionType.FAILURE)
@@ -95,20 +134,68 @@ class ReflectionEngine:
         patterns = self.get_learned_patterns()
         top_patterns = list(patterns.items())[:5]
 
-        lines = [
-            f"Reflections: {total} total ({successes} success, {failures} failure, {improvements} improvement)",
-            f"Lessons learned: {len(self._lessons)}",
-        ]
-        if top_patterns:
-            lines.append("Top patterns: " + ", ".join(f"{k}({v})" for k, v in top_patterns))
+        skill_stats = self._store.get_skill_stats()
+        skill_rates = {}
+        for name, stats in skill_stats.items():
+            total_ops = stats["success"] + stats["failure"]
+            if total_ops > 0:
+                skill_rates[name] = stats["success"] / total_ops
 
         recent = self._reflections[-3:]
-        if recent:
-            lines.append("Recent insights:")
-            for r in recent:
-                lines.append(f"  - [{r.reflection_type.value}] {r.summary}")
+        recent_insights = [f"[{r.reflection_type.value}] {r.summary}" for r in recent]
 
+        recommendations = self._generate_recommendations(skill_rates, top_patterns, failures)
+
+        return ReflectionSummary(
+            total_reflections=total,
+            successes=successes,
+            failures=failures,
+            improvements=improvements,
+            skill_success_rates=skill_rates,
+            top_patterns=top_patterns,
+            recent_insights=recent_insights,
+            recommendations=recommendations,
+        )
+
+    def summarize(self) -> str:
+        summary = self.get_summary()
+        lines = [
+            f"Reflections: {summary.total_reflections} total "
+            f"({summary.successes} success, {summary.failures} failure, "
+            f"{summary.improvements} improvement)",
+            f"Lessons learned: {len(self._lessons)}",
+        ]
+        if summary.top_patterns:
+            lines.append("Top patterns: " + ", ".join(f"{k}({v})" for k, v in summary.top_patterns))
+        if summary.skill_success_rates:
+            rates = ", ".join(f"{k}: {v:.0%}" for k, v in summary.skill_success_rates.items())
+            lines.append(f"Skill success rates: {rates}")
+        if summary.recommendations:
+            lines.append("Recommendations:")
+            for rec in summary.recommendations:
+                lines.append(f"  - {rec}")
+        if summary.recent_insights:
+            lines.append("Recent insights:")
+            for insight in summary.recent_insights:
+                lines.append(f"  {insight}")
         return "\n".join(lines)
+
+    def _generate_recommendations(self, skill_rates: dict, patterns: list, failures: int) -> list[str]:
+        recs = []
+        for name, rate in skill_rates.items():
+            if rate < 0.5:
+                recs.append(f"Skill '{name}' has {rate:.0%} success rate — investigate failures")
+            elif rate < 0.8:
+                recs.append(f"Skill '{name}' could improve ({rate:.0%} success rate)")
+
+        for tag, count in patterns[:3]:
+            if tag == "failure" and count > 3:
+                recs.append(f"Recurring failure pattern ({count}x) — consider alternative approach")
+
+        if failures > len(self._reflections) * 0.5 and len(self._reflections) >= 5:
+            recs.append("High failure rate overall — review recent decisions")
+
+        return recs
 
     def _reflect_with_llm(self, action: str, result: str, context: dict) -> Reflection:
         prompt = REFLECT_PROMPT.format(
@@ -149,7 +236,6 @@ class ReflectionEngine:
             return self._reflect_stub(action, result, context)
 
     def _reflect_stub(self, action: str, result: str, context: dict) -> Reflection:
-        """Rule-based fallback reflection."""
         success_indicators = ["success", "ok", "passed", "completed", "done"]
         failure_indicators = ["error", "failed", "exception", "crash", "bug"]
 

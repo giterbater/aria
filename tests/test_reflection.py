@@ -79,7 +79,8 @@ class TestReflectionEngineStub:
 
     def test_summarize_empty(self):
         engine = ReflectionEngine()
-        assert "No reflections" in engine.summarize()
+        text = engine.summarize()
+        assert "0 total" in text or "No reflections" in text
 
     def test_summarize_with_data(self):
         engine = ReflectionEngine()
