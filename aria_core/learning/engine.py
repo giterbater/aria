@@ -1,36 +1,50 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import List
 
 from .knowledge import KnowledgeBase, KnowledgeEntry, KnowledgeType
+from .skill_tracker import SkillTracker, SkillProfile
+from .workflow_learner import WorkflowLearner
 from ..reflection.engine import ReflectionEngine
-from ..reflection.interfaces import ReflectionType
+from ..reflection.interfaces import ReflectionType, SkillOutcome
 
 logger = logging.getLogger("aria.learning")
 
 
 class LearningEngine:
-    """Processes reflections into persistent knowledge.
+    """Enhanced learning engine with cognitive integration.
 
-    Extracts patterns from reflections, builds a knowledge base,
-    and provides relevant knowledge for future decisions.
+    Processes reflections into knowledge, tracks skill performance,
+    learns workflows, and integrates with cognitive state.
     """
 
     def __init__(
         self,
         knowledge: KnowledgeBase | None = None,
         reflection: ReflectionEngine | None = None,
+        db_path: str | None = None,
     ):
-        self._knowledge = knowledge or KnowledgeBase()
+        self._knowledge = knowledge or KnowledgeBase(db_path=db_path)
         self._reflection = reflection
+        self._skill_tracker = SkillTracker(db_path=db_path)
+        self._workflow_learner = WorkflowLearner(self._knowledge)
 
     @property
     def knowledge(self) -> KnowledgeBase:
         return self._knowledge
 
+    @property
+    def skill_tracker(self) -> SkillTracker:
+        return self._skill_tracker
+
+    @property
+    def workflow_learner(self) -> WorkflowLearner:
+        return self._workflow_learner
+
     def learn_from_reflections(self) -> int:
-        """Process recent reflections into knowledge entries. Returns count of new entries."""
+        """Process recent reflections into knowledge entries."""
         if self._reflection is None:
             return 0
 
@@ -81,12 +95,12 @@ class LearningEngine:
                         new_count += 1
 
         if new_count > 0:
-            logger.info("Learned %d new knowledge entries from %d reflections", new_count, len(reflections))
+            logger.info("Learned %d new entries from %d reflections", new_count, len(reflections))
 
         return new_count
 
     def learn_from_skill_stats(self) -> int:
-        """Build knowledge from skill success/failure statistics."""
+        """Build knowledge from skill performance statistics."""
         if self._reflection is None:
             return 0
 
@@ -105,7 +119,7 @@ class LearningEngine:
                 entry = KnowledgeEntry(
                     knowledge_type=KnowledgeType.FAILURE_MODE,
                     key=f"skill:{skill_name}:unreliable",
-                    value=f"Skill '{skill_name}' fails {skill_stats['failure']}/{total} times. Consider alternatives.",
+                    value=f"Skill '{skill_name}' fails {skill_stats['failure']}/{total} times.",
                     confidence=0.9,
                     tags=["skill", skill_name, "unreliable"],
                 )
@@ -116,7 +130,7 @@ class LearningEngine:
                 entry = KnowledgeEntry(
                     knowledge_type=KnowledgeType.SUCCESS_STRATEGY,
                     key=f"skill:{skill_name}:reliable",
-                    value=f"Skill '{skill_name}' succeeds {skill_stats['success']}/{total} times. Prefer this skill.",
+                    value=f"Skill '{skill_name}' succeeds {skill_stats['success']}/{total} times.",
                     confidence=0.9,
                     tags=["skill", skill_name, "reliable"],
                 )
@@ -128,7 +142,7 @@ class LearningEngine:
                 entry = KnowledgeEntry(
                     knowledge_type=KnowledgeType.PATTERN,
                     key=f"skill:{skill_name}:slow",
-                    value=f"Skill '{skill_name}' averages {avg_ms:.0f}ms. Consider caching or optimization.",
+                    value=f"Skill '{skill_name}' averages {avg_ms:.0f}ms.",
                     confidence=0.8,
                     tags=["skill", skill_name, "performance"],
                 )
@@ -138,29 +152,20 @@ class LearningEngine:
 
         return new_count
 
-    def learn_workflow(self, task: str, steps: list[str], success: bool) -> None:
-        """Record a workflow pattern from experience."""
-        workflow_key = f"workflow:{task[:50]}"
-        status = "succeeded" if success else "failed"
-
-        entry = KnowledgeEntry(
-            knowledge_type=KnowledgeType.WORKFLOW,
-            key=workflow_key,
-            value=json.dumps({"task": task, "steps": steps, "status": status}),
-            confidence=1.0 if success else 0.3,
-            tags=["workflow", status],
+    def record_skill_use(self, outcome: SkillOutcome) -> None:
+        """Record a skill execution for performance tracking."""
+        self._skill_tracker.record(
+            skill_name=outcome.skill_name,
+            success=outcome.success,
+            duration_ms=outcome.duration_ms,
+            context=outcome.action,
         )
-        existing = self._knowledge.get(workflow_key)
-        if existing:
-            if success:
-                self._knowledge.reinforce(existing.id, 0.1)
-            else:
-                self._knowledge.weaken(existing.id, 0.1)
-        else:
-            self._knowledge.store(entry)
+
+    def record_workflow(self, task: str, steps: list[str], success: bool, duration_ms: float = 0.0) -> None:
+        """Record a workflow execution."""
+        self._workflow_learner.record_workflow(task, steps, success, duration_ms)
 
     def get_relevant_knowledge(self, query: str, limit: int = 10) -> List[KnowledgeEntry]:
-        """Find knowledge relevant to a query."""
         results = self._knowledge.search(query, limit=limit)
         for entry in results:
             self._knowledge.record_use(entry.id)
@@ -175,10 +180,31 @@ class LearningEngine:
     def get_workflows(self, limit: int = 10) -> List[KnowledgeEntry]:
         return self._knowledge.get_by_type(KnowledgeType.WORKFLOW, limit)
 
+    def suggest_workflow(self, task: str) -> list[str] | None:
+        return self._workflow_learner.suggest_workflow(task)
+
+    def recommend_skill(self, task_keywords: list[str] | None = None) -> str | None:
+        return self._skill_tracker.get_best_skill(task_keywords)
+
+    def get_unreliable_skills(self) -> List[SkillProfile]:
+        return self._skill_tracker.get_unreliable_skills()
+
+    def get_slow_skills(self) -> List[SkillProfile]:
+        return self._skill_tracker.get_slow_skills()
+
+    def get_skill_profiles(self) -> List[SkillProfile]:
+        return self._skill_tracker.get_all_profiles()
+
     def get_knowledge_summary(self) -> str:
         counts = self._knowledge.count_by_type()
         total = self._knowledge.count()
-        lines = [f"Knowledge base: {total} entries"]
+        skill_stats = self._skill_tracker.get_all_profiles()
+        wf_stats = self._workflow_learner.get_workflow_stats()
+        lines = [
+            f"Knowledge: {total} entries",
+            f"Skills tracked: {len(skill_stats)}",
+            f"Workflows: {wf_stats['total_workflows']} ({wf_stats['success_rate']:.0%} success)",
+        ]
         for ktype, count in sorted(counts.items()):
             lines.append(f"  {ktype}: {count}")
         return "\n".join(lines)
@@ -196,6 +222,3 @@ class LearningEngine:
             ReflectionType.OBSERVATION: KnowledgeType.FACT,
         }
         return mapping.get(rtype, KnowledgeType.FACT)
-
-
-import json

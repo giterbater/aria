@@ -80,9 +80,9 @@ class DecisionInfluencer:
             try:
                 wf = __import__("json").loads(wf_entry.value)
                 wf_task = wf.get("task", "").lower()
-                wf_status = wf.get("status", "")
+                wf_success = wf.get("success", False)
 
-                if wf_status != "succeeded":
+                if not wf_success:
                     continue
 
                 task_tokens = set(task_lower.split())

@@ -139,7 +139,7 @@ class TestLearningEngine:
     def test_learn_workflow(self, tmp_path):
         kb = KnowledgeBase(str(tmp_path / "kb.db"))
         engine = LearningEngine(knowledge=kb)
-        engine.learn_workflow("test code", ["scan", "run_tests", "commit"], success=True)
+        engine.record_workflow("test code", ["scan", "run_tests", "commit"], success=True)
         assert kb.count() > 0
 
     def test_get_relevant_knowledge(self, tmp_path):
@@ -225,7 +225,7 @@ class TestDecisionInfluencer:
     def test_workflow_suggestion(self, tmp_path):
         kb = KnowledgeBase(str(tmp_path / "kb.db"))
         engine = LearningEngine(knowledge=kb)
-        engine.learn_workflow("test code", ["scan", "run_tests", "commit"], success=True)
+        engine.record_workflow("test code", ["scan", "run_tests", "commit"], success=True)
 
         influencer = DecisionInfluencer(engine)
         steps = influencer.get_workflow_suggestion("test code")
