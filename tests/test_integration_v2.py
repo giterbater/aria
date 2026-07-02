@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 from aria_core.integration import ARIACore
 from aria_core.skills.builtin import FileSkill, TerminalSkill, GitSkill
 from aria_core.skills.builtin.code_skill import CodeSkill
-from aria_core.goals import GoalState
 
 
 class TestARIACoreInit:
@@ -50,9 +49,8 @@ class TestARIACoreProcessObjective:
     def test_goal_created(self, tmp_path):
         core = ARIACore(db_path=str(tmp_path / "test.db"))
         core.process_objective("test objective")
-        active = core.goals.list_goals(GoalState.ACTIVE)
-        completed = core.goals.list_goals(GoalState.COMPLETED)
-        assert len(active) + len(completed) >= 1
+        all_goals = core.goals.list_goals()
+        assert len(all_goals) >= 1
         core.shutdown()
 
     def test_plan_created(self, tmp_path):

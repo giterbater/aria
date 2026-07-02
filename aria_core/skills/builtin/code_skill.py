@@ -49,20 +49,26 @@ class CodeSkill:
     def rollback(self, context: dict) -> SkillResult:
         return SkillResult.fail("Code analysis has no rollback")
 
+    _EXCLUDE_DIRS = {"__pycache__", "node_modules", ".venv", "venv", ".git", ".aria", "egg-info", ".tox", ".mypy_cache", "site-packages", ".aider"}
+
     def _scan(self, path: str) -> SkillResult:
+        import os
         base = Path(path).resolve()
         stats = {"total_files": 0, "python_files": 0, "total_lines": 0, "blank_lines": 0}
-        for f in base.rglob("*.py"):
-            if "__pycache__" in str(f) or "node_modules" in str(f):
-                continue
-            stats["total_files"] += 1
-            stats["python_files"] += 1
-            try:
-                lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
-                stats["total_lines"] += len(lines)
-                stats["blank_lines"] += sum(1 for l in lines if not l.strip())
-            except Exception:
-                continue
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in self._EXCLUDE_DIRS]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fp = Path(root) / fname
+                stats["total_files"] += 1
+                stats["python_files"] += 1
+                try:
+                    lines = fp.read_text(encoding="utf-8", errors="replace").splitlines()
+                    stats["total_lines"] += len(lines)
+                    stats["blank_lines"] += sum(1 for l in lines if not l.strip())
+                except Exception:
+                    continue
 
         for f in base.rglob("*"):
             if f.suffix and f.suffix != ".py" and f.is_file():
@@ -72,64 +78,75 @@ class CodeSkill:
         return SkillResult.ok(output=json.dumps(stats, indent=2), **stats)
 
     def _complexity(self, path: str) -> SkillResult:
+        import os
         base = Path(path).resolve()
         results = []
-        for f in base.rglob("*.py"):
-            if "__pycache__" in str(f):
-                continue
-            try:
-                source = f.read_text(encoding="utf-8", errors="replace")
-                tree = ast.parse(source)
-                funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
-                classes = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
-                results.append({
-                    "file": str(f.relative_to(base)),
-                    "functions": len(funcs),
-                    "classes": len(classes),
-                    "lines": len(source.splitlines()),
-                })
-            except (SyntaxError, Exception):
-                continue
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in self._EXCLUDE_DIRS]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fp = Path(root) / fname
+                try:
+                    source = fp.read_text(encoding="utf-8", errors="replace")
+                    tree = ast.parse(source)
+                    funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+                    classes = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
+                    results.append({
+                        "file": str(fp.relative_to(base)),
+                        "functions": len(funcs),
+                        "classes": len(classes),
+                        "lines": len(source.splitlines()),
+                    })
+                except (SyntaxError, Exception):
+                    continue
 
         return SkillResult.ok(output=json.dumps(results, indent=2), files_analyzed=len(results))
 
     def _structure(self, path: str) -> SkillResult:
+        import os
         base = Path(path).resolve()
         modules = []
-        for f in sorted(base.rglob("*.py")):
-            if "__pycache__" in str(f) or "node_modules" in str(f):
-                continue
-            rel = str(f.relative_to(base))
-            try:
-                source = f.read_text(encoding="utf-8", errors="replace")
-                tree = ast.parse(source)
-                exports = []
-                for node in ast.iter_child_nodes(tree):
-                    if isinstance(node, ast.ClassDef):
-                        exports.append(f"class {node.name}")
-                    elif isinstance(node, ast.FunctionDef):
-                        exports.append(f"def {node.name}")
-                if exports:
-                    modules.append({"file": rel, "exports": exports})
-            except (SyntaxError, Exception):
-                continue
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in self._EXCLUDE_DIRS]
+            for fname in sorted(files):
+                if not fname.endswith(".py"):
+                    continue
+                fp = Path(root) / fname
+                rel = str(fp.relative_to(base))
+                try:
+                    source = fp.read_text(encoding="utf-8", errors="replace")
+                    tree = ast.parse(source)
+                    exports = []
+                    for node in ast.iter_child_nodes(tree):
+                        if isinstance(node, ast.ClassDef):
+                            exports.append(f"class {node.name}")
+                        elif isinstance(node, ast.FunctionDef):
+                            exports.append(f"def {node.name}")
+                    if exports:
+                        modules.append({"file": rel, "exports": exports})
+                except (SyntaxError, Exception):
+                    continue
 
         return SkillResult.ok(output=json.dumps(modules, indent=2), modules=len(modules))
 
     def _find_patterns(self, pattern: str, path: str) -> SkillResult:
-        import re
+        import os, re
         base = Path(path).resolve()
         regex = re.compile(pattern, re.IGNORECASE)
         matches = []
-        for f in base.rglob("*.py"):
-            if "__pycache__" in str(f):
-                continue
-            try:
-                for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-                    if regex.search(line):
-                        matches.append({"file": str(f.relative_to(base)), "line": i, "text": line.strip()[:100]})
-            except Exception:
-                continue
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in self._EXCLUDE_DIRS]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fp = Path(root) / fname
+                try:
+                    for i, line in enumerate(fp.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                        if regex.search(line):
+                            matches.append({"file": str(fp.relative_to(base)), "line": i, "text": line.strip()[:100]})
+                except Exception:
+                    continue
 
         return SkillResult.ok(output=json.dumps(matches, indent=2), matches=len(matches))
 

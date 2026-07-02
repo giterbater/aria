@@ -71,14 +71,15 @@ class ARIACore:
             if step_result.success:
                 self.planning.step_completed(plan.id, step.id, str(step_result.output)[:200])
             else:
-                self.planning.step_failed(plan.id, step.id, step_result.error)
+                error_msg = "; ".join(step_result.errors) if step_result.errors else "step failed"
+                self.planning.step_failed(plan.id, step.id, error_msg)
                 break
 
         # 6. Reflect on outcomes
         success = all(r.success for r in results)
         self.reflection.reflect(
             action=f"process_objective: {objective[:50]}",
-            result="success" if success else f"failed: {results[-1].error if results else 'no results'}",
+            result="success" if success else f"failed: {'; '.join(results[-1].errors) if results else 'no results'}",
             context={"objective": objective, "steps": len(plan.steps)},
         )
 

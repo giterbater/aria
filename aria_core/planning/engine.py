@@ -124,8 +124,41 @@ class PlanningEngine:
             return self._decompose_stub(objective)
 
     def _decompose_stub(self, objective: str) -> list[PlanStep]:
-        """Fallback: single-step plan."""
-        return [PlanStep(description=objective, action="reason")]
+        """Keyword-based fallback that produces real action plans."""
+        obj = objective.lower()
+        steps = []
+
+        if any(w in obj for w in ["read", "inspect", "examine", "look", "check"]):
+            steps.append(PlanStep(description="Scan repository structure", action="code", args={"action": "scan", "path": "."}))
+            if any(w in obj for w in ["file", "code", "source", "module"]):
+                steps.append(PlanStep(description="Analyze code complexity", action="code", args={"action": "complexity", "path": "."}))
+
+        if any(w in obj for w in ["test", "fix", "bug", "fail", "error"]):
+            steps.append(PlanStep(description="Run test suite", action="terminal", args={"command": "python -m pytest tests/ -q --tb=short 2>&1"}))
+
+        if any(w in obj for w in ["todo", "debt", "improve", "refactor"]):
+            steps.append(PlanStep(description="Find TODOs and technical debt", action="code", args={"action": "find_patterns", "pattern": "TODO|FIXME|HACK|XXX", "path": "."}))
+
+        if any(w in obj for w in ["git", "commit", "status"]):
+            steps.append(PlanStep(description="Check git status", action="git", args={"action": "status"}))
+
+        if any(w in obj for w in ["create", "write", "build", "generate", "new"]):
+            steps.append(PlanStep(description="Scan existing structure", action="code", args={"action": "structure", "path": "."}))
+
+        if any(w in obj for w in ["analyze", "analysis", "review", "audit"]):
+            steps.append(PlanStep(description="Analyze codebase structure", action="code", args={"action": "structure", "path": "."}))
+            steps.append(PlanStep(description="Analyze code complexity", action="code", args={"action": "complexity", "path": "."}))
+
+        if any(w in obj for w in ["documentation", "readme", "docs"]):
+            steps.append(PlanStep(description="List existing documentation", action="documentation", args={"action": "list_docs"}))
+
+        if any(w in obj for w in ["run", "execute", "command"]):
+            steps.append(PlanStep(description="Execute command", action="terminal", args={"command": "echo 'executed'"}))
+
+        if not steps:
+            steps.append(PlanStep(description="Scan repository", action="code", args={"action": "scan", "path": "."}))
+
+        return steps
 
     def _parse_steps(self, text: str) -> list[dict]:
         try:
