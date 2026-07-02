@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, List
 
 from .interfaces import Skill, SkillResult
 from .registry import SkillRegistry
@@ -15,13 +16,14 @@ class SkillManager:
     """High-level orchestrator that ties registry, router, and execution together.
 
     This is the entry point the Decision Engine uses to execute skills.
-    It handles timing, logging, and result collection.
+    It handles timing, logging, result collection, and parallel execution.
     """
 
-    def __init__(self, registry: SkillRegistry | None = None) -> None:
+    def __init__(self, registry: SkillRegistry | None = None, max_workers: int = 4) -> None:
         self._registry = registry or SkillRegistry()
         self._router = SkillRouter(self._registry)
-        self._history: List[dict] = []
+        self._history: list[dict] = []
+        self._max_workers = max_workers
 
     @property
     def registry(self) -> SkillRegistry:
@@ -78,7 +80,33 @@ class SkillManager:
         })
         return result
 
-    def get_history(self, limit: int = 20) -> List[dict]:
+    def execute_parallel(self, tasks: list[tuple[str, dict]]) -> list[SkillResult]:
+        """Execute multiple skills in parallel.
+
+        Each task is (skill_name, kwargs). Skills run in a thread pool.
+        """
+        results: list[SkillResult | None] = [None] * len(tasks)
+
+        def _run(idx: int, name: str, kwargs: dict) -> tuple[int, SkillResult]:
+            return idx, self.execute_skill(name, **kwargs)
+
+        with ThreadPoolExecutor(max_workers=self._max_workers) as pool:
+            futures = {
+                pool.submit(_run, i, name, kwargs): i
+                for i, (name, kwargs) in enumerate(tasks)
+            }
+            for future in as_completed(futures):
+                idx, result = future.result()
+                results[idx] = result
+
+        return [r for r in results if r is not None]
+
+    def execute_batch(self, skill_names: list[str], shared_kwargs: dict | None = None) -> list[SkillResult]:
+        """Execute multiple skills with shared arguments."""
+        tasks = [(name, shared_kwargs or {}) for name in skill_names]
+        return self.execute_parallel(tasks)
+
+    def get_history(self, limit: int = 20) -> list[dict]:
         return self._history[-limit:]
 
     def summary(self) -> str:
