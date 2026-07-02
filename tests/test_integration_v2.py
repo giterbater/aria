@@ -12,7 +12,7 @@ class TestARIACoreInit:
     def test_init(self, tmp_path):
         core = ARIACore(db_path=str(tmp_path / "test.db"))
         assert core.goals is not None
-        assert core.planning is not None
+        assert core.reasoning is not None
         assert core.reflection is not None
         assert core.knowledge is not None
         assert core.learning is not None
