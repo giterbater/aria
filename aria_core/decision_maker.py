@@ -4,6 +4,7 @@ Decision maker that reasons over:
   * the current observation (StructuredInput)
   * working/episodic/semantic memory (via MemorySystemProtocol)
   * active goals (via GoalManager)
+  * memory influence signals (via MemoryInfluenceEngine)
 
 It selects an action type and builds a payload that the Output Planner
 will later turn into a prompt for the Language Cortex.
@@ -18,6 +19,7 @@ from typing import Any, List, Tuple
 from aria_core.interfaces import StructuredInput, ARIDecision
 from aria_core.memory.interfaces import MemorySystemProtocol
 from aria_core.memory.models import WorkingMemoryItem, EpisodicItem, SemanticItem
+from aria_core.memory.influence import MemoryInfluenceEngine, InfluenceSignal
 from .goals import Goal, GoalManager
 
 
@@ -33,11 +35,19 @@ def _jaccard(a: set[str], b: set[str]) -> float:
 
 class SimpleDecisionMaker:
     """
-    Example cognitive core that uses memory and goals to score possible
-    actions and pick the best one.  The scoring is deliberately simple
-    but demonstrates genuine reasoning (memory relevance, goal alignment,
-    emotional salience, etc.).  Replace the scoring functions with a
-    more sophisticated planner or utility model as needed.
+    Cognitive core that uses memory, goals, and influence signals to score
+    possible actions and pick the best one.
+    
+    The scoring combines:
+    1. Intent-action alignment (rule-based)
+    2. Emotional salience (empathetic response)
+    3. Memory relevance (past similar episodes)
+    4. Goal alignment (active goals)
+    5. **Memory influence** (learned preferences from experience)
+    
+    The memory influence is the key developmental component: it allows
+    the agent to learn from repeated successes and failures, creating
+    behavioral biases that emerge from experience.
     """
 
     # -----------------------------------------------------------------
@@ -52,18 +62,32 @@ class SimpleDecisionMaker:
         *,
         importance_decay_per_day: float = 0.1,
         recency_half_life_hours: float = 12.0,
+        influence_weight: float = 0.4,
     ) -> None:
         self._memory = memory
         self._goals = goals
         self._importance_decay_per_day = importance_decay_per_day
         self._recency_lambda = math.log(2) / recency_half_life_hours  # per hour
+        self._influence_weight = influence_weight
+        
+        # Initialize influence engine
+        self._influence = MemoryInfluenceEngine(
+            memory,
+            min_episodes_for_pattern=3,
+            recency_half_life_days=7.0,
+        )
+        
+        # Cache influence signals (updated periodically)
+        self._influence_cache: List[InfluenceSignal] = []
+        self._influence_cache_age: int = 0
+        self._influence_cache_interval: int = 10  # recompute every N decisions
 
     # -----------------------------------------------------------------
     # Public API
     # -----------------------------------------------------------------
     async def decide(self, structured_input: StructuredInput) -> ARIDecision:
         """Main entry point – returns a decision based on all available
-        sources of information."""
+        sources of information, including memory influence."""
         # 1️⃣ Store perception in working memory (for future relevance)
         wm_item = WorkingMemoryItem(
             structured_input=structured_input,
@@ -84,7 +108,13 @@ class SimpleDecisionMaker:
         # 3️⃣ Retrieve relevant goals
         relevant_goals: List[Goal] = self._goals.relevant_goals(cue, limit=5)
 
-        # 4️⃣ Score each possible action type
+        # 4️⃣ Compute memory influence signals (cached, periodic refresh)
+        self._influence_cache_age += 1
+        if not self._influence_cache or self._influence_cache_age >= self._influence_cache_interval:
+            self._influence_cache = self._influence.compute_influences(limit=10)
+            self._influence_cache_age = 0
+
+        # 5️⃣ Score each possible action type (with memory influence)
         scores: dict[str, float] = {}
         for act in self._ACTION_TYPES:
             scores[act] = self._score_action(
@@ -92,21 +122,22 @@ class SimpleDecisionMaker:
                 structured_input,
                 relevant,
                 relevant_goals,
+                self._influence_cache,
             )
 
-        # 5️⃣ Pick the highest‑scoring action (break ties arbitrarily)
+        # 6️⃣ Pick the highest‑scoring action (break ties arbitrarily)
         best_action = max(scores, key=scores.get)  # type: ignore[arg-type]
         best_score = scores[best_action]
 
-        # 6️⃣ Build a concrete decision payload
+        # 7️⃣ Build a concrete decision payload
         payload = self._build_payload(best_action, structured_input, relevant, relevant_goals)
 
-        # 7️⃣ Optionally adjust tone/priority/urgency/speak based on context
+        # 8️⃣ Optionally adjust tone/priority/urgency/speak based on context
         tone, priority, urgency, speak = self._contextual_modifiers(
             structured_input, relevant, relevant_goals, best_action
         )
 
-        # 8️⃣ Persist the full episode (decision included)
+        # 9️⃣ Persist the full episode (decision included)
         episodic_item = EpisodicItem(
             structured_input=structured_input,
             decision=ARIDecision(
@@ -121,12 +152,12 @@ class SimpleDecisionMaker:
         )
         self._memory.store_episodic(episodic_item)
 
-        # 9️⃣ Periodic housekeeping (every N decisions – here we just check size)
+        # 🔟 Periodic housekeeping (every N decisions – here we just check size)
         if len(self._memory.get_episodic(limit=1000)) % 7 == 0:
             self._memory.consolidate(importance_threshold=0.7)
             self._memory.forget_low_importance(threshold=0.2)
 
-        # 🔟 Return the decision
+        # 1️⃣1️⃣ Return the decision
         return ARIDecision(
             action_type=best_action,
             payload=payload,
@@ -145,10 +176,18 @@ class SimpleDecisionMaker:
         si: StructuredInput,
         relevant: List[Tuple[Any, float]],
         goals: List[Goal],
+        influence_signals: List[InfluenceSignal],
     ) -> float:
         """
         Combine several signals into a single utility for *action*.
         Higher = more likely to be chosen.
+        
+        Scoring components:
+        1. Intent-action alignment (rule-based)
+        2. Emotional salience (empathetic response)
+        3. Memory relevance (past similar episodes)
+        4. Goal alignment (active goals)
+        5. **Memory influence** (learned preferences from experience)
         """
         score = 0.0
 
@@ -206,6 +245,16 @@ class SimpleDecisionMaker:
         recency_factor = math.exp(-self._recency_lambda * age_hours)
         importance_factor = getattr(si, "importance", 0.5)
         score += (recency_factor * importance_factor) * 0.5
+
+        # ---- 6. Memory influence (learned preferences from experience) ----
+        # This is the developmental component: accumulated experience
+        # creates behavioral biases that emerge naturally.
+        influence_bonus = 0.0
+        for signal in influence_signals:
+            if signal.action_preference == action:
+                # Scale influence by its strength and confidence
+                influence_bonus += signal.strength * signal.confidence
+        score += influence_bonus * self._influence_weight
 
         return score
 

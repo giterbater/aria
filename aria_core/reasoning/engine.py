@@ -5,7 +5,9 @@ import logging
 from typing import Any, Protocol, runtime_checkable
 
 from .interfaces import ReasoningContext, ReasonedPlan, ConfidenceScore
+from .multi_hypothesis import MultiHypothesisReasoner
 from ..planning.interfaces import PlanStep
+from ..memory.interfaces import MemorySystemProtocol
 
 logger = logging.getLogger("aria.reasoning")
 
@@ -101,10 +103,26 @@ class ReasoningEngine:
 
     Gathers context → reasons about approach → produces structured plan →
     verifies plan → returns verified plan with confidence scores.
+
+    Supports multi-hypothesis reasoning: generates N candidate plans,
+    scores each, and selects the best.
     """
 
-    def __init__(self, llm: LLMProvider | None = None):
+    def __init__(
+        self,
+        llm: LLMProvider | None = None,
+        memory: MemorySystemProtocol | None = None,
+        use_multi_hypothesis: bool = True,
+        num_hypotheses: int = 3,
+    ):
         self._llm = llm
+        self._memory = memory
+        self._use_multi_hypothesis = use_multi_hypothesis
+        self._multi_hypothesis = MultiHypothesisReasoner(
+            llm=llm,
+            memory=memory,
+            num_hypotheses=num_hypotheses,
+        ) if use_multi_hypothesis else None
 
     def reason(self, objective: str, context: ReasoningContext | None = None) -> ReasonedPlan:
         """Full reasoning pipeline: gather context → reason → verify → return plan."""
@@ -114,7 +132,13 @@ class ReasoningEngine:
         if self._llm is None:
             return self._fallback_reason(objective, context)
 
-        plan = self._reason_with_llm(objective, context)
+        # Multi-hypothesis reasoning: generate alternatives and select best
+        if self._multi_hypothesis is not None:
+            hypotheses = self._multi_hypothesis.generate_hypotheses(objective, context)
+            plan = self._multi_hypothesis.select_best(hypotheses, context)
+        else:
+            plan = self._reason_with_llm(objective, context)
+
         plan = self._verify_plan(plan, context.available_skills)
         return plan
 
