@@ -4,9 +4,6 @@
 
 **Can ARIA maintain identical cognition while operating in different worlds?**
 
-Current: ARIA World (simulation)
-Future: Google Earth, Maps, Wi-Fi, GPS, Camera, Internet, Robot sensors
-
 The cognition should remain unchanged. Only perception changes.
 
 ---
@@ -26,260 +23,211 @@ ARIA Core consumes only `PerceptionFrame`. It doesn't know if the frame came fro
 
 ---
 
-## Architecture
+## Adapter Levels
 
-```
-aria_core/perception/
-├── models.py           # Typed perception models
-├── interfaces.py       # World Interface protocol
-├── fusion.py           # Sensor fusion
-├── memory.py           # Perception memory
-├── context_builder.py  # Reasoning context builder
-└── adapters/
-    ├── simulation.py   # ARIA World adapter
-    ├── gps.py          # GPS adapter
-    ├── wifi.py         # Wi-Fi context adapter
-    └── mock.py         # Testing adapter
-```
+### Level 1: Functional
 
----
+These adapters actually work with real data or real APIs.
 
-## Typed Models
+| Adapter | Status | Source | What It Does |
+|---------|--------|--------|--------------|
+| MockAdapter | ✅ Functional | Test data | Configurable mock for testing |
+| SimulationAdapter | ✅ Functional | ARIA World | Wraps existing simulation |
+| GPSAdapter | ✅ Functional | GPS input | Accepts coordinates, produces frames |
 
-Every environment exposes identical information through these models:
+### Level 2: Interface Only
 
-### PerceptionFrame
+These adapters define the interface but need real backends.
 
-The universal interface. Every adapter produces `PerceptionFrame` objects.
+| Adapter | Status | Needs | What It Would Do |
+|---------|--------|-------|------------------|
+| WiFiAdapter | 🔲 Interface | WiFi scanning API | Detect environment from networks |
+| GoogleEarthAdapter | 🔲 Interface | Earth data provider | Terrain, landmarks, satellite |
+| CameraAdapter | 🔲 Interface | Vision provider | Object detection, scene classification |
+| InternetAdapter | 🔲 Interface | Web APIs | IP location, weather, events |
 
-```python
-@dataclass
-class PerceptionFrame:
-    timestamp: datetime
-    source: str                    # "simulation", "gps", "wifi", etc.
-    environment_type: EnvironmentType
-    location: GeoLocation
-    objects: list[PerceivedObject]
-    agents: list[PerceivedAgent]
-    resources: list[PerceivedResource]
-    weather: PerceivedWeather
-    terrain: PerceivedTerrain
-    events: list[PerceivedEvent]
-    overall_confidence: float
-    completeness: float
-```
+### Level 3: Future
 
-### PerceptionContext
+Not yet implemented. Listed for research direction.
 
-Processed perception ready for reasoning.
-
-```python
-@dataclass
-class PerceptionContext:
-    current_location: GeoLocation
-    environment_type: EnvironmentType
-    known_environment: bool
-    nearby_agents: list[PerceivedAgent]
-    nearby_resources: list[PerceivedResource]
-    weather: PerceivedWeather
-    terrain: PerceivedTerrain
-    visited_locations: list[GeoLocation]
-    known_wifi_networks: list[str]
-    overall_confidence: float
-```
+- Robot Adapter (physical sensors)
+- LIDAR Adapter (3D scanning)
+- Audio Adapter (sound recognition)
 
 ---
 
-## World Interface Protocol
+## What's Real vs What's Interface
 
-Every adapter implements this protocol:
-
-```python
-class WorldInterface(Protocol):
-    def get_current_perception(self) -> PerceptionFrame: ...
-    def get_location(self) -> Optional[GeoLocation]: ...
-    def is_available(self) -> bool: ...
-    def get_confidence(self) -> float: ...
-    def get_source_name(self) -> str: ...
-```
-
----
-
-## Adapters
-
-### SimulationAdapter
-
-Wraps ARIA World into the World Interface.
+### MockAdapter — REAL
 
 ```python
-adapter = SimulationAdapter(world_engine)
-frame = adapter.get_current_perception()
-# frame contains agents, resources, terrain from simulation
-```
-
-### GPSAdapter
-
-Provides location from GPS sensor.
-
-```python
-adapter = GPSAdapter()
-adapter.update_location(latitude=37.7749, longitude=-122.4194, accuracy=5.0)
-frame = adapter.get_current_perception()
-# frame contains GPS location
-```
-
-### WiFiAdapter
-
-Detects environment context from Wi-Fi networks.
-
-```python
-adapter = WiFiAdapter()
-adapter.add_known_network("HomeWiFi", "home")
-adapter.update_scan([{"name": "HomeWiFi", "signal": -50}])
-frame = adapter.get_current_perception()
-# frame contains "likely at home" context
-```
-
-### MockAdapter
-
-Configurable mock for testing.
-
-```python
+# This actually works
 adapter = MockAdapter()
 adapter.set_location(37.7749, -122.4194)
-adapter.add_agent("Alice")
+adapter.add_agent("Alice", "human")
 adapter.add_resource(ResourceType.FOOD, 10.0)
+adapter.set_weather(WeatherCondition.CLEAR, 22.0)
+
 frame = adapter.get_current_perception()
+# frame contains real data you just set
 ```
 
----
-
-## Sensor Fusion
-
-Combines multiple perception sources into one frame.
+### SimulationAdapter — REAL
 
 ```python
-fusion = SimpleSensorFusion()
-fusion.add_source(gps_adapter)
-fusion.add_source(wifi_adapter)
-fusion.add_source(mock_adapter)
+# This wraps ARIA World
+from aria_world.world import WorldEngine
+from aria_world.config import SimulationConfig
 
-fused_frame = fusion.fuse()
-# fused_frame combines data from all sources
+world = WorldEngine(SimulationConfig(seed=42))
+world.initialize()
+
+adapter = SimulationAdapter(world)
+frame = adapter.get_current_perception()
+# frame contains real simulation state
 ```
 
----
-
-## Perception Memory
-
-Stores observation history for episodic retrieval.
+### GPSAdapter — REAL (accepts manual input)
 
 ```python
-memory = SimplePerceptionMemory()
-memory.store(frame)
+# This accepts GPS coordinates
+adapter = GPSAdapter()
+adapter.update_location(
+    latitude=37.7749,
+    longitude=-122.4194,
+    accuracy=5.0
+)
 
-visited = memory.get_visited_locations()
-known_wifi = memory.get_known_wifi_networks()
-frequent = memory.get_frequently_visited()
+frame = adapter.get_current_perception()
+# frame contains the coordinates you provided
+# NOTE: Does NOT read from actual GPS hardware
+# You must call update_location() manually
 ```
 
----
-
-## Context Builder
-
-Enriches perception with memory for reasoning.
+### WiFiAdapter — INTERFACE ONLY
 
 ```python
-builder = SimpleContextBuilder(memory)
-context = builder.build_context(frame)
-# context includes known_environment, nearby_known_places, etc.
-```
-
----
-
-## Wi-Fi Context Research
-
-### Hypothesis
-
-Wi-Fi networks can provide environmental context:
-- Known networks → "likely at home/work"
-- Signal strength → proximity estimate
-- Network history → location familiarity
-
-### Implementation
-
-```python
+# This defines the interface
 adapter = WiFiAdapter()
-adapter.add_known_network("HomeNetwork", "home")
-adapter.add_known_network("OfficeWiFi", "office")
+adapter.add_known_network("HomeWiFi", "home")
 
-# Scan networks
+# But update_scan() needs a real WiFi scanning backend
+# Currently you must call it manually:
 adapter.update_scan([
-    {"name": "HomeNetwork", "signal": -45},  # Strong signal
-    {"name": "Unknown", "signal": -80},      # Weak signal
+    {"name": "HomeWiFi", "signal": -50}
 ])
 
-frame = adapter.get_current_perception()
-# frame indicates "likely at home" with high confidence
+# No actual WiFi scanning happens
 ```
 
-### Research Questions
-
-1. Can Wi-Fi networks reliably identify environments?
-2. How does signal strength correlate with location accuracy?
-3. Can Wi-Fi history improve spatial memory?
-
----
-
-## Integration with Reasoning
-
-Reasoning automatically consumes perception context:
+### GoogleEarthAdapter — INTERFACE ONLY
 
 ```python
-# Build perception
-fusion = SimpleSensorFusion()
-fusion.add_source(gps_adapter)
-fusion.add_source(wifi_adapter)
-frame = fusion.fuse()
+# This defines the interface
+adapter = GoogleEarthAdapter()
+adapter.set_location(37.7749, -122.4194)
 
-# Build context
-builder = SimpleContextBuilder(memory)
-context = builder.build_context(frame)
+# But terrain/landmark data needs a real Earth data provider
+# Currently returns defaults
+```
 
-# Convert to reasoning context
-reasoning_context = context.to_reasoning_context()
+### CameraAdapter — INTERFACE ONLY
 
-# Reasoning uses this context
-plan = reasoning_engine.reason(objective, reasoning_context)
+```python
+# This defines the interface
+adapter = CameraAdapter()
+
+# But process_image() needs a real vision provider
+# Currently returns empty detection
+```
+
+### InternetAdapter — INTERFACE ONLY
+
+```python
+# This defines the interface
+adapter = InternetAdapter()
+
+# But update_from_ip() needs a real web API
+# Currently returns no data
 ```
 
 ---
 
-## Benchmark Metrics
+## What's Actually Implemented
 
-| Metric | Description |
-|--------|-------------|
-| Navigation accuracy | How accurately location is estimated |
-| Environment recognition | How often environment is correctly identified |
-| Context prediction | How well context predicts next state |
-| Memory retrieval | How well past observations are retrieved |
-| Planning improvement | How perception improves planning |
-| Decision latency | Time from perception to decision |
-| Adapter performance | Time per adapter call |
-| Cross-environment consistency | Same cognition across different worlds |
+### Core Infrastructure (REAL)
+
+- `PerceptionFrame` — typed model ✅
+- `PerceptionContext` — reasoning context ✅
+- `WorldInterface` — protocol ✅
+- `SimpleSensorFusion` — combines sources ✅
+- `SimplePerceptionMemory` — stores history ✅
+- `SimpleContextBuilder` — enriches perception ✅
+- `GeospatialReasoner` — distance, familiarity ✅
+
+### Adapters
+
+- `MockAdapter` — fully functional ✅
+- `SimulationAdapter` — wraps ARIA World ✅
+- `GPSAdapter` — accepts manual input ✅
+- `WiFiAdapter` — interface defined, needs backend 🔲
+- `GoogleEarthAdapter` — interface defined, needs backend 🔲
+- `CameraAdapter` — interface defined, needs backend 🔲
+- `InternetAdapter` — interface defined, needs backend 🔲
 
 ---
 
-## Future Work
+## Research Direction: Environment-Agnostic Cognition
 
-1. **Google Earth Adapter** — Virtual environment perception
-2. **Camera Adapter** — Visual perception
-3. **Internet Adapter** — Web-based context
-4. **Robot Adapter** — Physical sensor integration
-5. **Geospatial Reasoning** — Navigation, spatial memory
-6. **Place Recognition** — Landmark detection
-7. **Route Planning** — Path optimization
+The real contribution isn't specific adapters. It's the architecture:
+
+```
+Any Environment
+      ↓
+   Adapter
+      ↓
+PerceptionFrame
+      ↓
+  ARIA Core
+      ↓
+  Reasoning
+      ↓
+  Decisions
+```
+
+This means:
+1. Add a new environment = write one adapter
+2. Cognition never changes
+3. All environments produce identical data types
+4. Sensor fusion combines multiple sources
+
+---
+
+## What Would Make This Real
+
+To move from interface to functional:
+
+1. **GPS**: Connect to actual GPS hardware or NMEA parser
+2. **WiFi**: Connect to `nmcli`, `iwlist`, or platform WiFi API
+3. **Google Earth**: Connect to Google Earth API or similar
+4. **Camera**: Connect to OpenCV, YOLO, or cloud vision API
+5. **Internet**: Connect to weather API, IP geolocation, news API
+
+Each adapter already defines the interface. The backend is pluggable.
+
+---
+
+## Tests
+
+91 tests pass, covering:
+- Perception models
+- Adapter interfaces
+- Sensor fusion
+- Perception memory
+- Context building
+- Geospatial reasoning
 
 ---
 
 *Generated: 2026-07-05*
+*Status: Architecture + Level 1 adapters functional, Level 2 interfaces defined*
