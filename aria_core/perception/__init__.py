@@ -5,10 +5,11 @@ Perception Layer — generalized perception interface for ARIA.
 Provides:
 - Typed perception models (PerceptionFrame, PerceptionContext)
 - World Interface protocol
-- Environment adapters (Simulation, GPS, Wi-Fi, Mock)
+- Environment adapters (Simulation, GPS, Wi-Fi, Mock, Google Earth, Camera, Internet)
 - Sensor fusion
 - Perception memory
 - Context building
+- Geospatial reasoning
 
 Design principle: ARIA Core never knows where data came from.
 Cognition remains unchanged — only perception changes.
@@ -41,11 +42,17 @@ from .interfaces import (
 from .fusion import SimpleSensorFusion
 from .memory import SimplePerceptionMemory
 from .context_builder import SimpleContextBuilder
+from .geospatial import GeospatialReasoner
 
-from .adapters.simulation import SimulationAdapter
-from .adapters.wifi import WiFiAdapter
-from .adapters.gps import GPSAdapter
-from .adapters.mock import MockAdapter
+from .adapters import (
+    SimulationAdapter,
+    WiFiAdapter,
+    GPSAdapter,
+    MockAdapter,
+    GoogleEarthAdapter,
+    CameraAdapter,
+    InternetAdapter,
+)
 
 __all__ = [
     # Models
@@ -74,10 +81,14 @@ __all__ = [
     "SimpleSensorFusion",
     "SimplePerceptionMemory",
     "SimpleContextBuilder",
+    "GeospatialReasoner",
     
     # Adapters
     "SimulationAdapter",
     "WiFiAdapter",
     "GPSAdapter",
     "MockAdapter",
+    "GoogleEarthAdapter",
+    "CameraAdapter",
+    "InternetAdapter",
 ]
