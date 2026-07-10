@@ -38,8 +38,8 @@ class AdaptiveEmotionSystem:
     
     def __init__(
         self,
-        learning_rate: float = 0.1,
-        decay_rate: float = 0.02,
+        learning_rate: float = 0.3,
+        decay_rate: float = 0.05,
         frustration_threshold: int = 3,
     ):
         self._learning_rate = learning_rate
@@ -72,41 +72,41 @@ class AdaptiveEmotionSystem:
             self._consecutive_failures = 0
             
             # Success increases confidence
-            self._adjust(EmotionType.CONFIDENCE, 0.05)
+            self._adjust(EmotionType.CONFIDENCE, 0.15)
             
             # Success reduces frustration
-            self._adjust(EmotionType.FRUSTRATION, -0.1)
+            self._adjust(EmotionType.FRUSTRATION, -0.2)
             
-            # Success increases motivation slightly
-            self._adjust(EmotionType.MOTIVATION, 0.03)
+            # Success increases motivation
+            self._adjust(EmotionType.MOTIVATION, 0.1)
         else:
             self._consecutive_failures += 1
             self._consecutive_successes = 0
             
             # Failure decreases confidence
-            self._adjust(EmotionType.CONFIDENCE, -0.08)
+            self._adjust(EmotionType.CONFIDENCE, -0.2)
             
             # Failure increases frustration
-            self._adjust(EmotionType.FRUSTRATION, 0.1)
+            self._adjust(EmotionType.FRUSTRATION, 0.25)
             
-            # Repeated failure reduces motivation
+            # Repeated failure reduces motivation significantly
             if self._consecutive_failures >= self._frustration_threshold:
-                self._adjust(EmotionType.MOTIVATION, -0.1)
+                self._adjust(EmotionType.MOTIVATION, -0.2)
         
         # Update based on emotional content
         if experience.emotional_intensity > 0.5:
             # Strong emotional experiences affect attachment
             if experience.emotional_valence > 0:
-                self._adjust(EmotionType.ATTACHMENT, 0.05)
+                self._adjust(EmotionType.ATTACHMENT, 0.1)
             else:
-                self._adjust(EmotionType.STRESS, 0.1)
+                self._adjust(EmotionType.STRESS, 0.2)
         
         # Update curiosity based on novelty
         if experience.experience_type.value == "discovery":
-            self._adjust(EmotionType.CURIOSITY, 0.15)
+            self._adjust(EmotionType.CURIOSITY, 0.3)
         
         # Update fatigue (increases with each experience)
-        self._adjust(EmotionType.FATIGUE, 0.02)
+        self._adjust(EmotionType.FATIGUE, 0.05)
         
         # Track recent patterns
         self._recent_rewards.append(experience.reward)
