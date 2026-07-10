@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA Live</title>
+    <style>
+        :root {
+            --bg: #0a0e17;
+            --panel: #111827;
+            --border: #1f2937;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --green: #10b981;
+            --blue: #3b82f6;
+            --purple: #8b5cf6;
+            --red: #ef4444;
+            --yellow: #f59e0b;
+            --cyan: #06b6d4;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--green), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--muted);
+            font-size: 14px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .panel h2 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel h2 .icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        /* Maze */
+        .maze-container {
+            position: relative;
+        }
+        
+        #maze {
+            display: grid;
+            gap: 2px;
+            background: var(--border);
+            border-radius: 8px;
+            padding: 2px;
+        }
+        
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .cell.wall { background: #374151; }
+        .cell.path { background: #1a2332; }
+        .cell.visited { background: #1e3a5f; }
+        .cell.agent { background: var(--green); box-shadow: 0 0 20px var(--green); }
+        .cell.goal { background: var(--yellow); box-shadow: 0 0 20px var(--yellow); }
+        
+        /* Emotions */
+        .emotion-bar {
+            margin-bottom: 16px;
+        }
+        
+        .emotion-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        
+        .emotion-track {
+            height: 8px;
+            background: #1f2937;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .emotion-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease, background 0.5s ease;
+        }
+        
+        .emotion-fill.confidence { background: var(--green); }
+        .emotion-fill.curiosity { background: var(--cyan); }
+        .emotion-fill.frustration { background: var(--red); }
+        .emotion-fill.motivation { background: var(--purple); }
+        
+        /* Memory */
+        .memory-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 16px;
+            background: #1a2332;
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        
+        /* Thoughts */
+        .thoughts {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .thought {
+            padding: 8px 12px;
+            background: #1a2332;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--cyan);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .thought.dream {
+            border-left-color: var(--purple);
+            font-style: italic;
+        }
+        
+        .thought.success {
+            border-left-color: var(--green);
+        }
+        
+        .thought.failure {
+            border-left-color: var(--red);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-start {
+            background: var(--green);
+            color: white;
+        }
+        
+        .btn-start:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        
+        .btn-reset {
+            background: #374151;
+            color: var(--text);
+        }
+        
+        .btn-reset:hover {
+            background: #4b5563;
+        }
+        
+        /* Status */
+        .status {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        
+        .status.solved {
+            color: var(--green);
+            font-weight: 600;
+        }
+        
+        .status.failed {
+            color: var(--red);
+            font-weight: 600;
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        
+        /* Full width panel */
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ARIA LIVE</h1>
+            <div class="subtitle">Watch ARIA think, learn, and solve problems in real-time</div>
+        </header>
+        
+        <div class="grid">
+            <!-- Maze Panel -->
+            <div class="panel">
+                <h2><span class="icon" style="background: var(--green);">🗺</span> Maze</h2>
+                <div class="maze-container">
+                    <div id="maze"></div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background: var(--green);"></div>
+                        <span>Agent (ARIA)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background: var(--yellow);"></div>
+                        <span>Goal</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background: #1e3a5f;"></div>
+                        <span>Visited</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background: #374151;"></div>
+                        <span>Wall</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Emotions Panel -->
+            <div class="panel">
+                <h2><span class="icon" style="background: var(--purple);">🧠</span> Emotions</h2>
+                <div id="emotions">
+                    <div class="emotion-bar">
+                        <div class="emotion-label">
+                            <span>Confidence</span>
+                            <span id="confidence-value">70%</span>
+                        </div>
+                        <div class="emotion-track">
+                            <div class="emotion-fill confidence" id="confidence-bar" style="width: 70%"></div>
+                        </div>
+                    </div>
+                    <div class="emotion-bar">
+                        <div class="emotion-label">
+                            <span>Curiosity</span>
+                            <span id="curiosity-value">50%</span>
+                        </div>
+                        <div class="emotion-track">
+                            <div class="emotion-fill curiosity" id="curiosity-bar" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    <div class="emotion-bar">
+                        <div class="emotion-label">
+                            <span>Frustration</span>
+                            <span id="frustration-value">0%</span>
+                        </div>
+                        <div class="emotion-track">
+                            <div class="emotion-fill frustration" id="frustration-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="emotion-bar">
+                        <div class="emotion-label">
+                            <span>Motivation</span>
+                            <span id="motivation-value">70%</span>
+                        </div>
+                        <div class="emotion-track">
+                            <div class="emotion-fill motivation" id="motivation-bar" style="width: 70%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Memory Panel -->
+            <div class="panel">
+                <h2><span class="icon" style="background: var(--cyan);">💾</span> Memory</h2>
+                <div class="memory-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="episodic-count">0</div>
+                        <div class="stat-label">Episodic</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="semantic-count">0</div>
+                        <div class="stat-label">Semantic</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="dream-count">0</div>
+                        <div class="stat-label">Dreams</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Thoughts Panel -->
+            <div class="panel">
+                <h2><span class="icon" style="background: var(--blue);">💭</span> Current Thought</h2>
+                <div class="thoughts" id="thoughts">
+                    <div class="thought">ARIA initialized. Ready to explore.</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn-start" id="startBtn" onclick="startSimulation()">Start</button>
+            <button class="btn-reset" onclick="resetSimulation()">Reset</button>
+        </div>
+        
+        <div class="status" id="status">Step 0</div>
+    </div>
+    
+    <script>
+        let pollInterval = null;
+        
+        function startSimulation() {
+            fetch('/api/start')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('status').textContent = 'Running...';
+                    startPolling();
+                });
+        }
+        
+        function resetSimulation() {
+            fetch('/api/reset')
+                .then(r => r.json())
+                .then(data => {
+                    stopPolling();
+                    updateUI(data);
+                    document.getElementById('status').textContent = 'Reset';
+                });
+        }
+        
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(pollState, 300);
+        }
+        
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+        
+        function pollState() {
+            fetch('/api/state')
+                .then(r => r.json())
+                .then(data => {
+                    updateUI(data);
+                    if (data.solved) {
+                        stopPolling();
+                        document.getElementById('status').className = 'status solved';
+                        document.getElementById('status').textContent = `SOLVED in ${data.step} steps!`;
+                    }
+                });
+        }
+        
+        function updateUI(state) {
+            // Update maze
+            renderMaze(state);
+            
+            // Update emotions
+            updateEmotions(state.emotions);
+            
+            // Update memory
+            document.getElementById('episodic-count').textContent = state.memory.episodic;
+            document.getElementById('semantic-count').textContent = state.memory.semantic;
+            document.getElementById('dream-count').textContent = Math.floor(state.step / 10);
+            
+            // Update thoughts
+            updateThoughts(state.thoughts);
+            
+            // Update status
+            if (!state.solved) {
+                document.getElementById('status').textContent = `Step ${state.step}`;
+            }
+        }
+        
+        function renderMaze(state) {
+            const maze = state.maze;
+            const size = state.size || maze.length;
+            const mazeEl = document.getElementById('maze');
+            mazeEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            
+            let html = '';
+            for (let i = 0; i < maze.length; i++) {
+                for (let j = 0; j < maze[i].length; j++) {
+                    let className = 'cell ';
+                    
+                    if (maze[i][j] === 1) {
+                        className += 'wall';
+                    } else if (i === state.agent_pos[0] && j === state.agent_pos[1]) {
+                        className += 'agent';
+                    } else if (i === state.goal_pos[0] && j === state.goal_pos[1]) {
+                        className += 'goal';
+                    } else if (state.visited && state.visited.some(v => v[0] === i && v[1] === j)) {
+                        className += 'visited';
+                    } else {
+                        className += 'path';
+                    }
+                    
+                    html += `<div class="${className}"></div>`;
+                }
+            }
+            mazeEl.innerHTML = html;
+        }
+        
+        function updateEmotions(emotions) {
+            for (const [key, value] of Object.entries(emotions)) {
+                const bar = document.getElementById(`${key}-bar`);
+                const label = document.getElementById(`${key}-value`);
+                if (bar && label) {
+                    bar.style.width = `${value * 100}%`;
+                    label.textContent = `${Math.round(value * 100)}%`;
+                }
+            }
+        }
+        
+        function updateThoughts(thoughts) {
+            const container = document.getElementById('thoughts');
+            container.innerHTML = thoughts.map(t => {
+                let className = 'thought';
+                if (t.includes('Dreaming')) className += ' dream';
+                else if (t.includes('SOLVED')) className += ' success';
+                else if (t.includes('FAILED')) className += ' failure';
+                return `<div class="${className}">${t}</div>`;
+            }).reverse().join('');
+        }
+        
+        // Initial render
+        pollState();
+    </script>
+</body>
+</html>
