@@ -1,0 +1,1614 @@
+[
+  {
+    "solved": true,
+    "steps": 8,
+    "final_position": [
+      4,
+      4
+    ],
+    "goal_position": [
+      4,
+      4
+    ],
+    "final_state": {
+      "agent_id": "ARIA",
+      "emotions": {
+        "curiosity": 0.5,
+        "confidence": 0.82149840625,
+        "frustration": 0.025,
+        "motivation": 0.7686326875000001
+      },
+      "memory": {
+        "episodic": 4,
+        "semantic": 0,
+        "total": 4
+      },
+      "dream_count": 0,
+      "total_experiences": 8,
+      "current_hypothesis": "Move right (confidence: 0.70)"
+    },
+    "visited_cells": 8,
+    "history": [
+      {
+        "episode": 1,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.73275,
+            "frustration": 0.025,
+            "motivation": 0.7185
+          },
+          "memory": {
+            "episodic": 1,
+            "semantic": 0,
+            "total": 1
+          },
+          "dream_count": 0,
+          "total_experiences": 1,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            0,
+            0
+          ],
+          "goal_distance": 8,
+          "steps_remaining": 75
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7500000000000001
+        }
+      },
+      {
+        "episode": 2,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.7638625,
+            "frustration": 0.025,
+            "motivation": 0.736075
+          },
+          "memory": {
+            "episodic": 2,
+            "semantic": 0,
+            "total": 2
+          },
+          "dream_count": 0,
+          "total_experiences": 2,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            1,
+            0
+          ],
+          "goal_distance": 7,
+          "steps_remaining": 74
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7000000000000001
+        }
+      },
+      {
+        "episode": 3,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.793419375,
+            "frustration": 0.025,
+            "motivation": 0.7527712500000001
+          },
+          "memory": {
+            "episodic": 3,
+            "semantic": 0,
+            "total": 3
+          },
+          "dream_count": 0,
+          "total_experiences": 3,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            2,
+            0
+          ],
+          "goal_distance": 6,
+          "steps_remaining": 73
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.65
+        }
+      },
+      {
+        "episode": 4,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 4,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 72
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.6000000000000001
+        }
+      },
+      {
+        "episode": 5,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 5,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            0
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 71
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 6,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 6,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            1
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 70
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 7,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 7,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            2
+          ],
+          "goal_distance": 2,
+          "steps_remaining": 69
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 8,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 8,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            3
+          ],
+          "goal_distance": 1,
+          "steps_remaining": 68
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      }
+    ]
+  },
+  {
+    "solved": true,
+    "steps": 8,
+    "final_position": [
+      4,
+      4
+    ],
+    "goal_position": [
+      4,
+      4
+    ],
+    "final_state": {
+      "agent_id": "ARIA",
+      "emotions": {
+        "curiosity": 0.5,
+        "confidence": 0.82149840625,
+        "frustration": 0.025,
+        "motivation": 0.7686326875000001
+      },
+      "memory": {
+        "episodic": 4,
+        "semantic": 0,
+        "total": 4
+      },
+      "dream_count": 0,
+      "total_experiences": 8,
+      "current_hypothesis": "Move right (confidence: 0.70)"
+    },
+    "visited_cells": 8,
+    "history": [
+      {
+        "episode": 1,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.73275,
+            "frustration": 0.025,
+            "motivation": 0.7185
+          },
+          "memory": {
+            "episodic": 1,
+            "semantic": 0,
+            "total": 1
+          },
+          "dream_count": 0,
+          "total_experiences": 1,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            0,
+            0
+          ],
+          "goal_distance": 8,
+          "steps_remaining": 75
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7500000000000001
+        }
+      },
+      {
+        "episode": 2,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.7638625,
+            "frustration": 0.025,
+            "motivation": 0.736075
+          },
+          "memory": {
+            "episodic": 2,
+            "semantic": 0,
+            "total": 2
+          },
+          "dream_count": 0,
+          "total_experiences": 2,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            1,
+            0
+          ],
+          "goal_distance": 7,
+          "steps_remaining": 74
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7000000000000001
+        }
+      },
+      {
+        "episode": 3,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.793419375,
+            "frustration": 0.025,
+            "motivation": 0.7527712500000001
+          },
+          "memory": {
+            "episodic": 3,
+            "semantic": 0,
+            "total": 3
+          },
+          "dream_count": 0,
+          "total_experiences": 3,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            2,
+            0
+          ],
+          "goal_distance": 6,
+          "steps_remaining": 73
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.65
+        }
+      },
+      {
+        "episode": 4,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 4,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 72
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.6000000000000001
+        }
+      },
+      {
+        "episode": 5,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 5,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            1
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 71
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 6,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 6,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            1
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 70
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 7,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 7,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            2
+          ],
+          "goal_distance": 2,
+          "steps_remaining": 69
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 8,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 8,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            3
+          ],
+          "goal_distance": 1,
+          "steps_remaining": 68
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      }
+    ]
+  },
+  {
+    "solved": true,
+    "steps": 10,
+    "final_position": [
+      4,
+      4
+    ],
+    "goal_position": [
+      4,
+      4
+    ],
+    "final_state": {
+      "agent_id": "ARIA",
+      "emotions": {
+        "curiosity": 0.5,
+        "confidence": 0.82149840625,
+        "frustration": 0.025,
+        "motivation": 0.7686326875000001
+      },
+      "memory": {
+        "episodic": 4,
+        "semantic": 0,
+        "total": 4
+      },
+      "dream_count": 0,
+      "total_experiences": 10,
+      "current_hypothesis": "Move down (confidence: 0.70)"
+    },
+    "visited_cells": 10,
+    "history": [
+      {
+        "episode": 1,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.73275,
+            "frustration": 0.025,
+            "motivation": 0.7185
+          },
+          "memory": {
+            "episodic": 1,
+            "semantic": 0,
+            "total": 1
+          },
+          "dream_count": 0,
+          "total_experiences": 1,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            0,
+            0
+          ],
+          "goal_distance": 8,
+          "steps_remaining": 75
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7500000000000001
+        }
+      },
+      {
+        "episode": 2,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.7638625,
+            "frustration": 0.025,
+            "motivation": 0.736075
+          },
+          "memory": {
+            "episodic": 2,
+            "semantic": 0,
+            "total": 2
+          },
+          "dream_count": 0,
+          "total_experiences": 2,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            1,
+            0
+          ],
+          "goal_distance": 7,
+          "steps_remaining": 74
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7000000000000001
+        }
+      },
+      {
+        "episode": 3,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.793419375,
+            "frustration": 0.025,
+            "motivation": 0.7527712500000001
+          },
+          "memory": {
+            "episodic": 3,
+            "semantic": 0,
+            "total": 3
+          },
+          "dream_count": 0,
+          "total_experiences": 3,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            2,
+            0
+          ],
+          "goal_distance": 6,
+          "steps_remaining": 73
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.65
+        }
+      },
+      {
+        "episode": 4,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 4,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 72
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.6000000000000001
+        }
+      },
+      {
+        "episode": 5,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 5,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            0
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 71
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 6,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 6,
+          "current_hypothesis": "Move up (confidence: 0.40)"
+        },
+        "perception": {
+          "position": [
+            4,
+            1
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 70
+        },
+        "result": {
+          "success": true,
+          "direction": "up",
+          "importance": 0.38000000000000006
+        }
+      },
+      {
+        "episode": 7,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 7,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            1
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 69
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 8,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 8,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            2
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 68
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 9,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 9,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            3
+          ],
+          "goal_distance": 2,
+          "steps_remaining": 67
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 10,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 10,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            4
+          ],
+          "goal_distance": 1,
+          "steps_remaining": 66
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.35000000000000003
+        }
+      }
+    ]
+  },
+  {
+    "solved": true,
+    "steps": 10,
+    "final_position": [
+      4,
+      4
+    ],
+    "goal_position": [
+      4,
+      4
+    ],
+    "final_state": {
+      "agent_id": "ARIA",
+      "emotions": {
+        "curiosity": 0.5,
+        "confidence": 0.82149840625,
+        "frustration": 0.025,
+        "motivation": 0.7686326875000001
+      },
+      "memory": {
+        "episodic": 4,
+        "semantic": 0,
+        "total": 4
+      },
+      "dream_count": 0,
+      "total_experiences": 10,
+      "current_hypothesis": "Move right (confidence: 0.70)"
+    },
+    "visited_cells": 9,
+    "history": [
+      {
+        "episode": 1,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.73275,
+            "frustration": 0.025,
+            "motivation": 0.7185
+          },
+          "memory": {
+            "episodic": 1,
+            "semantic": 0,
+            "total": 1
+          },
+          "dream_count": 0,
+          "total_experiences": 1,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            0,
+            0
+          ],
+          "goal_distance": 8,
+          "steps_remaining": 75
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7500000000000001
+        }
+      },
+      {
+        "episode": 2,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.7638625,
+            "frustration": 0.025,
+            "motivation": 0.736075
+          },
+          "memory": {
+            "episodic": 2,
+            "semantic": 0,
+            "total": 2
+          },
+          "dream_count": 0,
+          "total_experiences": 2,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            1,
+            0
+          ],
+          "goal_distance": 7,
+          "steps_remaining": 74
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7000000000000001
+        }
+      },
+      {
+        "episode": 3,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.793419375,
+            "frustration": 0.025,
+            "motivation": 0.7527712500000001
+          },
+          "memory": {
+            "episodic": 3,
+            "semantic": 0,
+            "total": 3
+          },
+          "dream_count": 0,
+          "total_experiences": 3,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            2,
+            0
+          ],
+          "goal_distance": 6,
+          "steps_remaining": 73
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.65
+        }
+      },
+      {
+        "episode": 4,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 4,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 72
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.6000000000000001
+        }
+      },
+      {
+        "episode": 5,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 5,
+          "current_hypothesis": "Move up (confidence: 0.10)"
+        },
+        "perception": {
+          "position": [
+            4,
+            0
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 71
+        },
+        "result": {
+          "success": true,
+          "direction": "up",
+          "importance": 0.41
+        }
+      },
+      {
+        "episode": 6,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 6,
+          "current_hypothesis": "Move right (confidence: 0.90)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 70
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.33
+        }
+      },
+      {
+        "episode": 7,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 7,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            1
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 69
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 8,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 8,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            2
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 68
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 9,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 9,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            2
+          ],
+          "goal_distance": 2,
+          "steps_remaining": 67
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 10,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 10,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            3
+          ],
+          "goal_distance": 1,
+          "steps_remaining": 66
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      }
+    ]
+  },
+  {
+    "solved": true,
+    "steps": 8,
+    "final_position": [
+      4,
+      4
+    ],
+    "goal_position": [
+      4,
+      4
+    ],
+    "final_state": {
+      "agent_id": "ARIA",
+      "emotions": {
+        "curiosity": 0.5,
+        "confidence": 0.82149840625,
+        "frustration": 0.025,
+        "motivation": 0.7686326875000001
+      },
+      "memory": {
+        "episodic": 4,
+        "semantic": 0,
+        "total": 4
+      },
+      "dream_count": 0,
+      "total_experiences": 8,
+      "current_hypothesis": "Move right (confidence: 0.70)"
+    },
+    "visited_cells": 8,
+    "history": [
+      {
+        "episode": 1,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.73275,
+            "frustration": 0.025,
+            "motivation": 0.7185
+          },
+          "memory": {
+            "episodic": 1,
+            "semantic": 0,
+            "total": 1
+          },
+          "dream_count": 0,
+          "total_experiences": 1,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            0,
+            0
+          ],
+          "goal_distance": 8,
+          "steps_remaining": 75
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7500000000000001
+        }
+      },
+      {
+        "episode": 2,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.7638625,
+            "frustration": 0.025,
+            "motivation": 0.736075
+          },
+          "memory": {
+            "episodic": 2,
+            "semantic": 0,
+            "total": 2
+          },
+          "dream_count": 0,
+          "total_experiences": 2,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            1,
+            0
+          ],
+          "goal_distance": 7,
+          "steps_remaining": 74
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.7000000000000001
+        }
+      },
+      {
+        "episode": 3,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.793419375,
+            "frustration": 0.025,
+            "motivation": 0.7527712500000001
+          },
+          "memory": {
+            "episodic": 3,
+            "semantic": 0,
+            "total": 3
+          },
+          "dream_count": 0,
+          "total_experiences": 3,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            2,
+            0
+          ],
+          "goal_distance": 6,
+          "steps_remaining": 73
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.65
+        }
+      },
+      {
+        "episode": 4,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 4,
+          "current_hypothesis": "Move down (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            3,
+            0
+          ],
+          "goal_distance": 5,
+          "steps_remaining": 72
+        },
+        "result": {
+          "success": true,
+          "direction": "down",
+          "importance": 0.6000000000000001
+        }
+      },
+      {
+        "episode": 5,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 5,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            0
+          ],
+          "goal_distance": 4,
+          "steps_remaining": 71
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 6,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 6,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            1
+          ],
+          "goal_distance": 3,
+          "steps_remaining": 70
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 7,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 7,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            2
+          ],
+          "goal_distance": 2,
+          "steps_remaining": 69
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      },
+      {
+        "episode": 8,
+        "state": {
+          "agent_id": "ARIA",
+          "emotions": {
+            "curiosity": 0.5,
+            "confidence": 0.82149840625,
+            "frustration": 0.025,
+            "motivation": 0.7686326875000001
+          },
+          "memory": {
+            "episodic": 4,
+            "semantic": 0,
+            "total": 4
+          },
+          "dream_count": 0,
+          "total_experiences": 8,
+          "current_hypothesis": "Move right (confidence: 0.70)"
+        },
+        "perception": {
+          "position": [
+            4,
+            3
+          ],
+          "goal_distance": 1,
+          "steps_remaining": 68
+        },
+        "result": {
+          "success": true,
+          "direction": "right",
+          "importance": 0.35000000000000003
+        }
+      }
+    ]
+  }
+]

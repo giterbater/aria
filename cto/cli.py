@@ -260,9 +260,9 @@ Examples:
         """,
     )
     parser.add_argument("--repo", default=".", help="Repository path")
-    parser.add_argument("--provider", default="ollama", choices=["ollama", "nvidia"], help="LLM provider")
-    parser.add_argument("--model", default="deepseek-coder-v2:16b", help="Model name")
-    parser.add_argument("--api-key", default="", help="API key (or set NVIDIA_API_KEY env)")
+    parser.add_argument("--provider", default="nvidia", choices=["ollama", "nvidia"], help="LLM provider")
+    parser.add_argument("--model", default="minimaxai/minimax-m2.7", help="Model name")
+    parser.add_argument("--api-key", default="", help="API key (falls back to NVIDIA_API_KEY env var)")
     parser.add_argument("--base-url", default="", help="Provider base URL")
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama URL (for fallback)")
     parser.add_argument("--single-cycle", action="store_true", help="Run one cycle and exit")

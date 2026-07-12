@@ -132,9 +132,9 @@ class TestNvidiaProvider:
 
     def test_generate_no_api_key(self):
         cfg = ProviderConfig(provider="nvidia", api_key="")
-        provider = NvidiaProvider(cfg)
 
         with patch.dict("os.environ", {}, clear=True):
+            provider = NvidiaProvider(cfg)
             result = provider.generate("test")
             assert result.success is False
             assert "NVIDIA_API_KEY" in result.error
@@ -171,9 +171,9 @@ class TestNvidiaProvider:
 
     def test_stream_no_api_key(self):
         cfg = ProviderConfig(provider="nvidia", api_key="")
-        provider = NvidiaProvider(cfg)
 
         with patch.dict("os.environ", {}, clear=True):
+            provider = NvidiaProvider(cfg)
             tokens = list(provider.generate_stream("test"))
             assert len(tokens) == 1
             assert "NVIDIA_API_KEY" in tokens[0]

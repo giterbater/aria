@@ -1,0 +1,379 @@
+{
+  "parameters": {
+    "num_seeds": 10,
+    "cycles": 50
+  },
+  "results": [
+    {
+      "seed": 0,
+      "identity_coherence": 0.4,
+      "value_coherence": 0.5666666666666667,
+      "stable_preferences": 2,
+      "stable_values": 4,
+      "preference_types": [
+        "risk_tolerance",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed"
+      ],
+      "influence_signals": 7,
+      "top_influence": [
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "inform",
+          "strength": 0.7
+        },
+        {
+          "action": "inform",
+          "strength": 0.5833333333333333
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 1,
+      "identity_coherence": 0.8,
+      "value_coherence": 0.8333333333333334,
+      "stable_preferences": 4,
+      "stable_values": 5,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "thoroughness",
+        "speed",
+        "safety",
+        "simplicity"
+      ],
+      "influence_signals": 7,
+      "top_influence": [
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "query",
+          "strength": 0.5499999999999999
+        },
+        {
+          "action": "query",
+          "strength": 0.48529411764705876
+        }
+      ],
+      "has_conflicts": false,
+      "conflict_count": 0
+    },
+    {
+      "seed": 2,
+      "identity_coherence": 0.4,
+      "value_coherence": 0.7333333333333334,
+      "stable_preferences": 2,
+      "stable_values": 5,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed",
+        "safety"
+      ],
+      "influence_signals": 7,
+      "top_influence": [
+        {
+          "action": "execute",
+          "strength": -1.0
+        },
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "inform",
+          "strength": 0.7000000000000001
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 3,
+      "identity_coherence": 0.6,
+      "value_coherence": 0.5666666666666667,
+      "stable_preferences": 3,
+      "stable_values": 4,
+      "preference_types": [
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed"
+      ],
+      "influence_signals": 6,
+      "top_influence": [
+        {
+          "action": "inform",
+          "strength": 0.7999999999999999
+        },
+        {
+          "action": "inform",
+          "strength": 0.6666666666666666
+        },
+        {
+          "action": "query",
+          "strength": 0.32142857142857145
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 4,
+      "identity_coherence": 0.8,
+      "value_coherence": 0.5666666666666667,
+      "stable_preferences": 4,
+      "stable_values": 4,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed"
+      ],
+      "influence_signals": 7,
+      "top_influence": [
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "inform",
+          "strength": 0.6000000000000001
+        },
+        {
+          "action": "inform",
+          "strength": 0.5625
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 5,
+      "identity_coherence": 0.8,
+      "value_coherence": 0.5666666666666667,
+      "stable_preferences": 4,
+      "stable_values": 4,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed"
+      ],
+      "influence_signals": 6,
+      "top_influence": [
+        {
+          "action": "inform",
+          "strength": 0.6428571428571429
+        },
+        {
+          "action": "inform",
+          "strength": 0.6
+        },
+        {
+          "action": "query",
+          "strength": 0.32142857142857145
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 6,
+      "identity_coherence": 0.6,
+      "value_coherence": 0.7333333333333334,
+      "stable_preferences": 3,
+      "stable_values": 5,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed",
+        "safety"
+      ],
+      "influence_signals": 7,
+      "top_influence": [
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "inform",
+          "strength": 0.4499999999999999
+        },
+        {
+          "action": "inform",
+          "strength": 0.3552631578947368
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 7,
+      "identity_coherence": 0.8,
+      "value_coherence": 0.7333333333333334,
+      "stable_preferences": 4,
+      "stable_values": 5,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "reliability",
+        "simplicity",
+        "thoroughness",
+        "speed",
+        "safety"
+      ],
+      "influence_signals": 6,
+      "top_influence": [
+        {
+          "action": "warn",
+          "strength": -1.0
+        },
+        {
+          "action": "query",
+          "strength": 0.5
+        },
+        {
+          "action": "query",
+          "strength": 0.4
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    },
+    {
+      "seed": 8,
+      "identity_coherence": 0.4,
+      "value_coherence": 0.6333333333333333,
+      "stable_preferences": 2,
+      "stable_values": 5,
+      "preference_types": [
+        "action_preference",
+        "risk_tolerance"
+      ],
+      "value_types": [
+        "reliability",
+        "safety",
+        "simplicity",
+        "thoroughness",
+        "speed"
+      ],
+      "influence_signals": 5,
+      "top_influence": [
+        {
+          "action": "execute",
+          "strength": 0.3499999999999999
+        },
+        {
+          "action": "execute",
+          "strength": 0.3499999999999999
+        },
+        {
+          "action": "warn",
+          "strength": -0.19999999999999998
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 2
+    },
+    {
+      "seed": 9,
+      "identity_coherence": 0.6,
+      "value_coherence": 0.5666666666666667,
+      "stable_preferences": 3,
+      "stable_values": 4,
+      "preference_types": [
+        "risk_tolerance",
+        "action_preference",
+        "action_preference"
+      ],
+      "value_types": [
+        "safety",
+        "reliability",
+        "simplicity",
+        "thoroughness"
+      ],
+      "influence_signals": 6,
+      "top_influence": [
+        {
+          "action": "inform",
+          "strength": 0.6499999999999999
+        },
+        {
+          "action": "inform",
+          "strength": 0.513157894736842
+        },
+        {
+          "action": "execute",
+          "strength": 0.34090909090909094
+        }
+      ],
+      "has_conflicts": true,
+      "conflict_count": 1
+    }
+  ],
+  "analysis": {
+    "identity_coherence": {
+      "mean": 0.6199999999999999,
+      "min": 0.4,
+      "max": 0.8
+    },
+    "value_coherence": {
+      "mean": 0.65,
+      "min": 0.5666666666666667,
+      "max": 0.8333333333333334
+    },
+    "unique_pref_patterns": 1,
+    "unique_val_patterns": 3,
+    "conflict_seeds": 9
+  }
+}

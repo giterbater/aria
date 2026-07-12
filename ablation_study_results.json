@@ -1,0 +1,38 @@
+{
+  "parameters": {
+    "num_runs": 100,
+    "num_arms": 5
+  },
+  "results": {
+    "Full ARIA": {
+      "avg_reward": 0.6856,
+      "std_reward": 0.16419574423304162,
+      "avg_best_rate": 0.718098912623458,
+      "std_best_rate": 0.1710136327776389
+    },
+    "No Memory": {
+      "avg_reward": 0.6900000000000001,
+      "std_reward": 0.16095045978514788,
+      "avg_best_rate": 0.7327739398025147,
+      "std_best_rate": 0.15440420209854375
+    },
+    "No Emotions": {
+      "avg_reward": 0.6961,
+      "std_reward": 0.13990541537955295,
+      "avg_best_rate": 0.7315849092541723,
+      "std_best_rate": 0.14364779593805357
+    },
+    "No Exploration": {
+      "avg_reward": 0.654,
+      "std_reward": 0.16806684576817835,
+      "avg_best_rate": 0.6730739559805144,
+      "std_best_rate": 0.16913469466767028
+    },
+    "Baseline": {
+      "avg_reward": 0.698,
+      "std_reward": 0.14164260045136937,
+      "avg_best_rate": 0.7348727237895508,
+      "std_best_rate": 0.1444299162521883
+    }
+  }
+}

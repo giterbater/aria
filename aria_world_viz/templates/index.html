@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA — Cognitive World Simulator</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e17; color: #e5e7eb; height: 100vh; overflow: hidden; }
+        
+        .app { display: grid; grid-template-columns: 280px 1fr 340px; height: 100vh; }
+        
+        /* Left Panel */
+        .left { background: #111827; border-right: 1px solid #1f2937; padding: 16px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+        .logo { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #1f2937; }
+        .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #10b981, #06b6d4); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .logo h1 { font-size: 20px; background: linear-gradient(135deg, #10b981, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo small { display: block; color: #9ca3af; font-size: 10px; }
+        
+        .section { margin-bottom: 12px; }
+        .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 8px; }
+        
+        label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 4px; }
+        select { width: 100%; padding: 8px; background: #1f2937; border: 1px solid #374151; border-radius: 6px; color: #e5e7eb; font-size: 13px; }
+        
+        .btn-row { display: flex; gap: 6px; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-start { background: #10b981; color: white; }
+        .btn-reset { background: #374151; color: #e5e7eb; }
+        
+        .info-card { background: #1f2937; border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.6; }
+        .info-card .row { display: flex; justify-content: space-between; }
+        .info-card .label { color: #9ca3af; }
+        .info-card .value { color: #06b6d4; font-weight: 600; }
+        
+        /* Center */
+        .center { display: flex; flex-direction: column; background: #0a0e17; }
+        .center-header { padding: 12px 20px; border-bottom: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; }
+        .center-header h2 { font-size: 14px; }
+        .stats { display: flex; gap: 20px; }
+        .stat { text-align: center; }
+        .stat-val { font-size: 20px; font-weight: 700; color: #06b6d4; }
+        .stat-lbl { font-size: 10px; color: #9ca3af; }
+        
+        .canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        #worldCanvas { border-radius: 8px; background: #111827; cursor: crosshair; }
+        
+        .legend { padding: 8px 20px; border-top: 1px solid #1f2937; display: flex; gap: 16px; font-size: 11px; color: #9ca3af; flex-wrap: wrap; }
+        .legend span { display: flex; align-items: center; gap: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 2px; }
+        
+        /* Right Panel */
+        .right { background: #111827; border-left: 1px solid #1f2937; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        
+        .section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        
+        /* Emotions */
+        .emotion { margin-bottom: 8px; }
+        .emotion-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+        .emotion-track { height: 5px; background: #1f2937; border-radius: 3px; overflow: hidden; }
+        .emotion-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+        .emotion-reason { font-size: 10px; color: #6b7280; font-style: italic; margin-top: 2px; }
+        
+        /* Thought Stream */
+        .thought-stream { font-family: 'SF Mono', Monaco, monospace; font-size: 11px; }
+        .thought { padding: 8px; background: #1f2937; border-radius: 6px; margin-bottom: 6px; border-left: 2px solid #06b6d4; }
+        .thought .type { font-size: 9px; text-transform: uppercase; color: #06b6d4; margin-bottom: 4px; }
+        .thought .content { color: #d1d5db; line-height: 1.5; }
+        .thought.ob { border-left-color: #10b981; }
+        .thought.dec { border-left-color: #f59e0b; }
+        .thought.learn { border-left-color: #8b5cf6; }
+        
+        /* Memory */
+        .mem-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .mem-cell { background: #1f2937; border-radius: 6px; padding: 10px; text-align: center; }
+        .mem-cell .num { font-size: 18px; font-weight: 700; color: #06b6d4; }
+        .mem-cell .lbl { font-size: 9px; color: #9ca3af; text-transform: uppercase; }
+        
+        /* Events */
+        .event-item { padding: 6px 8px; background: #1f2937; border-radius: 4px; margin-bottom: 4px; font-size: 11px; display: flex; gap: 8px; }
+        .event-type { color: #f59e0b; font-weight: 600; }
+        .event-msg { color: #d1d5db; }
+        
+        /* Performance */
+        .perf-chart { height: 80px; background: #1f2937; border-radius: 8px; overflow: hidden; }
+        #perfCanvas { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- Left Panel -->
+    <div class="left">
+        <div class="logo">
+            <div class="logo-icon">🧠</div>
+            <div><h1>ARIA</h1><small>Cognitive World Simulator</small></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">World</div>
+            <label>Environment</label>
+            <select id="envType"><option value="city">Small City</option></select>
+            <label style="margin-top:8px">Population</label>
+            <select id="population"><option value="20">20 NPCs</option><option value="30" selected>30 NPCs</option><option value="50">50 NPCs</option></select>
+        </div>
+        
+        <div class="section">
+            <div class="btn-row">
+                <button class="btn btn-start" onclick="startSim()">Start</button>
+                <button class="btn btn-reset" onclick="resetSim()">Reset</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">World Status</div>
+            <div class="info-card">
+                <div class="row"><span class="label">Time</span><span class="value" id="worldTime">0:00</span></div>
+                <div class="row"><span class="label">Day</span><span class="value" id="worldDay">1</span></div>
+                <div class="row"><span class="label">Weather</span><span class="value" id="worldWeather">Clear</span></div>
+                <div class="row"><span class="label">Temperature</span><span class="value" id="worldTemp">20°C</span></div>
+                <div class="row"><span class="label">Traffic</span><span class="value" id="worldTraffic">30%</span></div>
+                <div class="row"><span class="label">Population</span><span class="value" id="worldPop">30</span></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Resources</div>
+            <div class="info-card" id="resourcesCard">
+                <div class="row"><span class="label">Energy</span><span class="value" id="resEnergy">100</span></div>
+                <div class="row"><span class="label">Water</span><span class="value" id="resWater">100</span></div>
+                <div class="row"><span class="label">Food</span><span class="value" id="resFood">100</span></div>
+                <div class="row"><span class="label">Materials</span><span class="value" id="resMat">50</span></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Events</div>
+            <div id="eventsList" style="max-height:120px;overflow-y:auto;font-size:11px;">
+                <div style="color:#6b7280">No events yet</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Center - World Map -->
+    <div class="center">
+        <div class="center-header">
+            <h2>World Map</h2>
+            <div class="stats">
+                <div class="stat"><div class="stat-val" id="statTick">0</div><div class="stat-lbl">Tick</div></div>
+                <div class="stat"><div class="stat-val" id="statReward">0</div><div class="stat-lbl">Reward</div></div>
+                <div class="stat"><div class="stat-val" id="statSuccess">0%</div><div class="stat-lbl">Success</div></div>
+            </div>
+        </div>
+        <div class="canvas-area">
+            <canvas id="worldCanvas" width="600" height="500"></canvas>
+        </div>
+        <div class="legend">
+            <span><div class="dot" style="background:#10b981"></div>ARIA Agent</span>
+            <span><div class="dot" style="background:#3b82f6"></div>NPC</span>
+            <span><div class="dot" style="background:#f59e0b"></div>Building</span>
+            <span><div class="dot" style="background:#6b7280"></div>Road</span>
+            <span><div class="dot" style="background:#22c55e"></div>Vegetation</span>
+            <span><div class="dot" style="background:#ef4444"></div>Event</span>
+        </div>
+    </div>
+    
+    <!-- Right Panel -->
+    <div class="right">
+        <!-- Emotions -->
+        <div class="section">
+            <h3>🎭 Emotions</h3>
+            <div id="emotions">
+                <div class="emotion">
+                    <div class="emotion-header"><span>Confidence</span><span id="emoConf">70%</span></div>
+                    <div class="emotion-track"><div class="emotion-fill" id="barConf" style="width:70%;background:#10b981"></div></div>
+                    <div class="emotion-reason" id="reasonConf">Initial state</div>
+                </div>
+                <div class="emotion">
+                    <div class="emotion-header"><span>Curiosity</span><span id="emoCur">50%</span></div>
+                    <div class="emotion-track"><div class="emotion-fill" id="barCur" style="width:50%;background:#06b6d4"></div></div>
+                    <div class="emotion-reason" id="reasonCur">Initial state</div>
+                </div>
+                <div class="emotion">
+                    <div class="emotion-header"><span>Frustration</span><span id="emoFru">0%</span></div>
+                    <div class="emotion-track"><div class="emotion-fill" id="barFru" style="width:0%;background:#ef4444"></div></div>
+                    <div class="emotion-reason" id="reasonFru">No failures yet</div>
+                </div>
+                <div class="emotion">
+                    <div class="emotion-header"><span>Motivation</span><span id="emoMot">70%</span></div>
+                    <div class="emotion-track"><div class="emotion-fill" id="barMot" style="width:70%;background:#8b5cf6"></div></div>
+                    <div class="emotion-reason" id="reasonMot">Initial state</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thought Process -->
+        <div class="section">
+            <h3>💭 Thought Process</h3>
+            <div class="thought-stream" id="thoughtStream">
+                <div class="thought"><div class="type">ready</div><div class="content">Waiting to start...</div></div>
+            </div>
+        </div>
+        
+        <!-- Memory -->
+        <div class="section">
+            <h3>💾 Memory</h3>
+            <div class="mem-grid">
+                <div class="mem-cell"><div class="num" id="memEpi">0</div><div class="lbl">Episodic</div></div>
+                <div class="mem-cell"><div class="num" id="memSem">0</div><div class="lbl">Semantic</div></div>
+                <div class="mem-cell"><div class="num" id="memTotal">0</div><div class="lbl">Total</div></div>
+            </div>
+        </div>
+        
+        <!-- Performance -->
+        <div class="section">
+            <h3>📈 Performance</h3>
+            <div class="perf-chart"><canvas id="perfCanvas"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let poll = null;
+let lastEmotions = {};
+
+function startSim() {
+    fetch('/api/start', {method:'POST'}).then(r => r.json()).then(() => {
+        poll = setInterval(pollState, 300);
+    });
+}
+
+function resetSim() {
+    fetch('/api/reset', {method:'POST'}).then(r => r.json()).then(() => {
+        clearInterval(poll);
+        poll = null;
+        updateUI({tick:0, world:{}, agent_state:{}, thoughts:[], emotions:{}, memory:{}, performance:[], event_log:[]});
+    });
+}
+
+function pollState() {
+    fetch('/api/state').then(r => r.json()).then(d => updateUI(d));
+}
+
+function updateUI(state) {
+    const world = state.world || {};
+    const agent = state.agent_state || {};
+    const emotions = agent.emotions || {};
+    
+    // World info
+    const hour = Math.floor(world.time_of_day || 0);
+    const min = Math.floor(((world.time_of_day || 0) % 1) * 60);
+    document.getElementById('worldTime').textContent = `${hour}:${min.toString().padStart(2,'0')}`;
+    document.getElementById('worldDay').textContent = world.day || 1;
+    document.getElementById('worldWeather').textContent = (world.weather || 'clear').charAt(0).toUpperCase() + (world.weather || 'clear').slice(1);
+    document.getElementById('worldTemp').textContent = `${Math.round(world.temperature || 20)}°C`;
+    document.getElementById('worldTraffic').textContent = `${Math.round((world.traffic_level || 0) * 100)}%`;
+    document.getElementById('worldPop').textContent = world.npc_count || 0;
+    
+    // Resources
+    const res = world.resources || {};
+    document.getElementById('resEnergy').textContent = Math.round(res.energy || 0);
+    document.getElementById('resWater').textContent = Math.round(res.water || 0);
+    document.getElementById('resFood').textContent = Math.round(res.food || 0);
+    document.getElementById('resMat').textContent = Math.round(res.materials || 0);
+    
+    // Stats
+    document.getElementById('statTick').textContent = state.tick || 0;
+    document.getElementById('statReward').textContent = Math.round((world.total_reward || 0));
+    const stats = agent.stats || {};
+    document.getElementById('statSuccess').textContent = `${Math.round((stats.success_rate || 0) * 100)}%`;
+    
+    // Emotions
+    updateEmotions(emotions, agent);
+    
+    // Thoughts
+    updateThoughts(state.thoughts || []);
+    
+    // Memory
+    const mem = agent.memory || {};
+    document.getElementById('memEpi').textContent = mem.episodic || 0;
+    document.getElementById('memSem').textContent = mem.semantic || 0;
+    document.getElementById('memTotal').textContent = mem.total || 0;
+    
+    // Events
+    updateEvents(state.event_log || []);
+    
+    // Performance chart
+    drawPerf(state.performance || []);
+    
+    // Draw world
+    drawWorld(world);
+}
+
+function updateEmotions(emos, agent) {
+    const reasons = agent.current_thought?.thoughts || [];
+    setEmo('Conf', emos.confidence || 0.7, reasons[0] || 'Initial state');
+    setEmo('Cur', emos.curiosity || 0.5, reasons[1] || 'Initial state');
+    setEmo('Fru', emos.frustration || 0, reasons[2] || 'No failures yet');
+    setEmo('Mot', emos.motivation || 0.7, reasons[3] || 'Initial state');
+}
+
+function setEmo(name, val, reason) {
+    const v = Math.round(val * 100);
+    document.getElementById('bar'+name).style.width = v+'%';
+    document.getElementById('emo'+name).textContent = v+'%';
+    document.getElementById('reason'+name).textContent = reason;
+}
+
+function updateThoughts(thoughts) {
+    const container = document.getElementById('thoughtStream');
+    container.innerHTML = thoughts.slice().reverse().map(t => {
+        let cls = 'thought';
+        let type = t.type || 'info';
+        if (type === 'observation') cls += ' ob';
+        else if (type === 'decision') cls += ' dec';
+        else if (type === 'learning') cls += ' learn';
+        
+        const content = (t.thoughts || []).join('<br>');
+        return `<div class="${cls}"><div class="type">${type}</div><div class="content">${content}</div></div>`;
+    }).join('');
+}
+
+function updateEvents(events) {
+    const container = document.getElementById('eventsList');
+    if (events.length === 0) {
+        container.innerHTML = '<div style="color:#6b7280">No events yet</div>';
+        return;
+    }
+    container.innerHTML = events.slice().reverse().map(e => 
+        `<div class="event-item"><span class="event-type">${e.type}</span><span class="event-msg">${e.message}</span></div>`
+    ).join('');
+}
+
+function drawWorld(world) {
+    const canvas = document.getElementById('worldCanvas');
+    const ctx = canvas.getContext('2d');
+    const size = world.size || 50;
+    const scale = Math.min(580, 480) / size;
+    const offset_x = (600 - size * scale) / 2;
+    const offset_y = (500 - size * scale) / 2;
+    
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, 600, 500);
+    
+    // Draw vegetation
+    (world.vegetation || []).forEach(v => {
+        ctx.fillStyle = '#22c55e';
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(offset_x + v.x * scale, offset_y + v.y * scale, v.size * scale * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    
+    // Draw roads
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = scale * 0.3;
+    (world.roads || []).forEach(r => {
+        ctx.beginPath();
+        ctx.moveTo(offset_x + r.x1 * scale, offset_y + r.y1 * scale);
+        ctx.lineTo(offset_x + r.x2 * scale, offset_y + r.y2 * scale);
+        ctx.stroke();
+    });
+    
+    // Draw buildings
+    (world.buildings || []).forEach(b => {
+        const colors = {residential: '#3b82f6', commercial: '#f59e0b', industrial: '#6b7280', hospital: '#ef4444', school: '#8b5cf6', park: '#22c55e'};
+        ctx.fillStyle = colors[b.type] || '#6b7280';
+        ctx.fillRect(offset_x + b.x * scale, offset_y + b.y * scale, b.width * scale * 0.8, b.height * scale * 0.8);
+    });
+    
+    // Draw NPCs
+    ctx.fillStyle = '#3b82f6';
+    (world.npcs || []).forEach(n => {
+        ctx.beginPath();
+        ctx.arc(offset_x + n.x * scale, offset_y + n.y * scale, 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // Draw events
+    ctx.fillStyle = '#ef4444';
+    (world.events || []).forEach(e => {
+        ctx.beginPath();
+        ctx.arc(offset_x + e.x * scale, offset_y + e.y * scale, 4, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // Draw ARIA agent
+    (world.agents || []).forEach(a => {
+        ctx.fillStyle = '#10b981';
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(offset_x + a.x * scale, offset_y + a.y * scale, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Goal marker
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(offset_x + a.x * scale, offset_y + a.y * scale);
+        ctx.lineTo(offset_x + 45 * scale, offset_y + 45 * scale);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    });
+}
+
+function drawPerf(data) {
+    const canvas = document.getElementById('perfCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (data.length < 2) return;
+    
+    const max = Math.max(...data.map(d => d.total_reward || 0), 1);
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.forEach((d, i) => {
+        const x = (i / (data.length - 1)) * canvas.width;
+        const y = canvas.height - (d.total_reward / max) * (canvas.height - 10);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+// Initialize
+updateUI({tick:0, world:{}, agent_state:{}, thoughts:[], emotions:{}, memory:{}, performance:[], event_log:[]});
+</script>
+</body>
+</html>

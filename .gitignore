@@ -9,3 +9,6 @@ venv/
 env/
 out*.txt
 *.log
+.env
+.aider*
+openhands/.env

@@ -4,6 +4,7 @@ import json
 import pytest
 from unittest.mock import MagicMock
 from aria_core.reasoning import ReasoningEngine, ReasoningContext, ReasonedPlan, ConfidenceScore
+from aria_core.planning.interfaces import PlanStepState
 
 
 class TestConfidenceScore:
@@ -32,6 +33,27 @@ class TestReasoningContext:
         assert ctx.objective == ""
         assert ctx.available_skills == []
         assert ctx.constraints == []
+
+
+class TestReasonedPlanAdapter:
+    def test_to_plan_adapts_steps_to_typed_plan(self):
+        reasoned = ReasonedPlan(
+            objective="inspect",
+            steps=[
+                {"id": 1, "skill": "code", "action": "scan", "args": {"path": "."}, "description": "Scan"},
+                {"id": 2, "skill": "terminal", "action": "run", "args": {"command": "echo ok"}, "dependencies": [1]},
+            ],
+        )
+
+        plan = reasoned.to_plan()
+
+        assert plan.objective == "inspect"
+        assert len(plan.steps) == 2
+        assert plan.steps[0].id == "1"
+        assert plan.steps[0].action == "code"
+        assert plan.steps[0].args["action"] == "scan"
+        assert plan.steps[0].state == PlanStepState.PENDING
+        assert plan.steps[1].depends_on == ["1"]
 
 
 class TestReasoningEngineFallback:

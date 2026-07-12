@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..planning.interfaces import Plan, PlanStep
+
 
 @dataclass
 class ConfidenceScore:
@@ -52,3 +54,44 @@ class ReasonedPlan:
     alternatives: list[str] = field(default_factory=list)
     verified: bool = False
     verification_notes: list[str] = field(default_factory=list)
+
+    def to_plan(self) -> Plan:
+        """Adapt dict-based reasoning steps into the typed planning model.
+
+        This is a migration adapter for the current reasoning contract. New
+        execution code should use the returned ``Plan`` instead of mutating
+        ``steps`` directly.
+        """
+        typed_steps: list[PlanStep] = []
+        known_ids: set[str] = set()
+
+        for index, step in enumerate(self.steps):
+            raw_id = step.get("id", index + 1)
+            step_id = str(raw_id)
+            known_ids.add(step_id)
+
+            skill = str(step.get("skill") or step.get("action") or "reason")
+            action = step.get("action", "")
+            args = dict(step.get("args") or {})
+            if action:
+                args.setdefault("action", action)
+
+            deps = [str(dep) for dep in step.get("dependencies", step.get("depends_on", []))]
+            typed_steps.append(
+                PlanStep(
+                    id=step_id,
+                    description=str(step.get("description", "")),
+                    action=skill,
+                    args=args,
+                    depends_on=deps,
+                )
+            )
+
+        for typed_step in typed_steps:
+            typed_step.depends_on = [dep for dep in typed_step.depends_on if dep in known_ids]
+
+        return Plan(
+            id=f"reasoned:{abs(hash((self.objective, len(self.steps))))}",
+            objective=self.objective,
+            steps=typed_steps,
+        )

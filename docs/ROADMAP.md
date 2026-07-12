@@ -1,49 +1,60 @@
 # ARIA Roadmap
 
-## Priority 0: Keep The Repo Runnable
+ARIA v0.x assembled the major pieces. ARIA v1 focuses on measurable improvement.
 
-Owner: Project Manager
+## Phase A: Benchmarking And Visualization
 
-- Maintain a passing standard-library smoke test suite.
-- Keep the rule-based pipeline usable without external API keys.
-- Avoid coupling UI, speech, cognition, and language model backends directly.
-- Commit meaningful milestones after tests pass.
+Every build should answer:
 
-## Priority 1: Stabilize Async Boundaries
+- Is reasoning better?
+- Is planning faster?
+- Is memory retrieval improving?
+- Is language understanding improving?
+- Is execution more reliable?
+- Is the simulated world healthier?
 
-Owner: Project Manager integration, Mimo/Nemotron by subsystem
+Current work:
 
-- Ensure every async protocol call is awaited or run through a clear sync bridge.
-- Add tests for interpreter, core decision maker, output planner, and mock language generation.
-- Document which entry points are interactive and which are test-safe.
+- ARIA World dashboard.
+- Simulation benchmark scores.
+- Public docs and quick-start workflow.
 
-## Priority 2: Cognitive Core Improvements
+## Phase B: Internal Cognitive State
 
-Owner: Mimo
+Add functional internal variables that affect planning and decision-making:
 
-- Improve memory relevance so it uses structured input fields instead of object string representations.
-- Preserve concrete memory item types when updating importance.
-- Add goal lifecycle tests for add, remove, relevance, deadlines, and completion signals.
+- confidence
+- uncertainty
+- curiosity
+- persistence
+- caution
+- workload
+- novelty
 
-## Priority 3: Communication Layer Improvements
+These are control signals, not fake personality.
 
-Owner: Nemotron
+## Phase C: Better Reasoning
 
-- Harden input interpretation confidence handling.
-- Add ALang serialization helpers outside UI code so debug rendering is reusable.
-- Add a text-mode conversation loop that does not require microphone or CustomTkinter.
+Move from:
 
-## Priority 4: UI And Speech Reliability
+```text
+Understand -> Plan -> Execute
+```
 
-Owner: Nemotron
+Toward:
 
-- Guard optional UI and speech dependencies with clear error messages.
-- Add event bus subscriptions tests for key UI events.
-- Keep the UI a consumer of events, not a direct owner of cognition.
+```text
+Understand -> Generate hypotheses -> Evaluate options -> Choose -> Execute -> Verify
+```
 
-## Review Rules
+## Phase D: Multi-Agent Testing
 
-- Mimo and Nemotron should not work on the same module in the same milestone.
-- Changes that cross subsystem boundaries require Project Manager integration review.
-- Run `python -m unittest discover -s tests` after each major change.
-- Update this roadmap when priorities or ownership change.
+Run several ARIA instances against shared problems to measure coordination, critique, and diversity of approach.
+
+## Phase E: Civilization
+
+Only expand civilization-level behavior after benchmarks show reliable improvements in individual subsystems and ARIA World outcomes.
+
+## Rule
+
+No major feature should land without a measurable success criterion.

@@ -170,6 +170,14 @@ class TestSkillRouter:
 
 
 class TestSkillManager:
+    def test_optional_builtin_registration(self):
+        mgr = SkillManager(auto_register_builtins=True)
+        assert mgr.registry.get("file") is not None
+        assert mgr.registry.get("terminal") is not None
+        assert mgr.registry.get("git") is not None
+        assert mgr.registry.get("code") is not None
+        assert mgr.registry.get("documentation") is not None
+
     def test_register_and_execute(self):
         mgr = SkillManager()
         mgr.register(MockSkill(name="echo", description="echo back"))

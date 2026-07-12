@@ -419,8 +419,25 @@ class SimpleMemorySystem(MemorySystemProtocol):
         *,
         notes: Optional[str] = None,
     ) -> None:
-        raise NotImplementedError(
-            "SimpleMemorySystem is the in-memory reference backend and does "
-            "not support outcome writeback. Use SQLiteMemorySystem (or a "
-            "future persistent backend) for M2 outcome feedback."
-        )
+        deltas = {
+            Outcome.SUCCESS: 0.10,
+            Outcome.PARTIAL: 0.0,
+            Outcome.FAILED: -0.05,
+            Outcome.IGNORED: -0.05,
+            Outcome.CORRECTED: 0.05,
+        }
+        delta = deltas[outcome]
+        for idx, item in enumerate(self._episodic):
+            if item.id != episode_id:
+                continue
+            self._episodic[idx] = EpisodicItem(
+                id=item.id,
+                timestamp=item.timestamp,
+                importance=max(0.0, min(1.0, item.importance + delta)),
+                metadata=dict(item.metadata),
+                structured_input=item.structured_input,
+                decision=item.decision,
+                outcome=outcome.value,
+                notes=item.notes if notes is None else notes,
+            )
+            return

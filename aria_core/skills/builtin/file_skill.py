@@ -60,7 +60,7 @@ class FileSkill:
             elif action == "list":
                 result = self._list(path, kwargs.get("recursive", False))
             else:
-                result = ToolResult.fail(f"Unknown action: {action}")
+                result = SkillResult.fail(f"Unknown action: {action}")
 
             elapsed = (time.monotonic() - t0) * 1000
             result.metadata["duration_ms"] = round(elapsed, 1)

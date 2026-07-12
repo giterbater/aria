@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import datetime
 import math
+import uuid
 from typing import Any, List, Tuple
 
+from aria_core.cognition.events import CognitiveEvent, Event
+from aria_core.cognition.prediction import PredictionModel
+from aria_core.environment import Action
 from aria_core.interfaces import StructuredInput, ARIDecision
 from aria_core.memory.interfaces import MemorySystemProtocol
 from aria_core.memory.models import WorkingMemoryItem, EpisodicItem, SemanticItem
@@ -63,12 +67,26 @@ class SimpleDecisionMaker:
         importance_decay_per_day: float = 0.1,
         recency_half_life_hours: float = 12.0,
         influence_weight: float = 0.4,
+        agent_id: str = "aria",
+        event_bus: Any | None = None,
+        emit_events: bool = True,
+        prediction_model: PredictionModel | None = None,
     ) -> None:
         self._memory = memory
         self._goals = goals
         self._importance_decay_per_day = importance_decay_per_day
         self._recency_lambda = math.log(2) / recency_half_life_hours  # per hour
         self._influence_weight = influence_weight
+        self._agent_id = agent_id
+        if event_bus is None:
+            from event_bus import bus
+
+            event_bus = bus
+        self._bus = event_bus
+        self._emit_events = emit_events
+        self._prediction_model = prediction_model or PredictionModel()
+        self._decision_count = 0
+        self._last_episode_id: str | None = None
         
         # Initialize influence engine
         self._influence = MemoryInfluenceEngine(
@@ -85,13 +103,33 @@ class SimpleDecisionMaker:
     # -----------------------------------------------------------------
     # Public API
     # -----------------------------------------------------------------
+    @property
+    def last_episode_id(self) -> str | None:
+        return self._last_episode_id
+
     async def decide(self, structured_input: StructuredInput) -> ARIDecision:
         """Main entry point – returns a decision based on all available
         sources of information, including memory influence."""
+        self._decision_count += 1
+        episode_id = uuid.uuid4().hex[:12]
+        self._last_episode_id = episode_id
+
+        self._publish(
+            Event.OBSERVATION,
+            episode_id,
+            1,
+            {
+                "structured_input": structured_input,
+                "raw_text": getattr(structured_input, "raw_text", ""),
+                "intent": getattr(structured_input, "intent", ""),
+            },
+        )
+
         # 1️⃣ Store perception in working memory (for future relevance)
         wm_item = WorkingMemoryItem(
             structured_input=structured_input,
             importance=0.5,  # seed importance; will be updated by memory later
+            metadata={"episode_id": episode_id},
         )
         self._memory.store_working(wm_item)
 
@@ -103,6 +141,24 @@ class SimpleDecisionMaker:
             episodic_weight=0.4,
             semantic_weight=0.2,
             limit=8,
+        )
+        self._publish(
+            Event.MEMORY_RETRIEVED,
+            episode_id,
+            2,
+            {
+                "cues": [cue],
+                "matches": [
+                    {
+                        "item_id": item.id,
+                        "kind": self._memory_kind(item),
+                        "relevance": relevance,
+                        "snippet": self._memory_snippet(item),
+                    }
+                    for item, relevance in relevant
+                ],
+                "total": len(relevant),
+            },
         )
 
         # 3️⃣ Retrieve relevant goals
@@ -125,9 +181,39 @@ class SimpleDecisionMaker:
                 self._influence_cache,
             )
 
+        hypotheses = [
+            {
+                "id": f"h_{action}",
+                "text": f"Choose {action}",
+                "prior": self._normalize_score(score, scores),
+                "support": score,
+            }
+            for action, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        ]
+        self._publish(
+            Event.HYPOTHESIS,
+            episode_id,
+            3,
+            {"hypotheses": hypotheses},
+        )
+
         # 6️⃣ Pick the highest‑scoring action (break ties arbitrarily)
         best_action = max(scores, key=scores.get)  # type: ignore[arg-type]
         best_score = scores[best_action]
+
+        prediction = self._prediction_model.predict(
+            action_type=best_action,
+            scores=scores,
+            structured_input=structured_input,
+            memory_matches=len(relevant),
+            active_goals=len(relevant_goals),
+        )
+        self._publish(
+            Event.PREDICTION,
+            episode_id,
+            4,
+            prediction.to_payload(),
+        )
 
         # 7️⃣ Build a concrete decision payload
         payload = self._build_payload(best_action, structured_input, relevant, relevant_goals)
@@ -139,6 +225,7 @@ class SimpleDecisionMaker:
 
         # 9️⃣ Persist the full episode (decision included)
         episodic_item = EpisodicItem(
+            id=episode_id,
             structured_input=structured_input,
             decision=ARIDecision(
                 action_type=best_action,
@@ -149,6 +236,11 @@ class SimpleDecisionMaker:
                 speak=speak,
             ),
             outcome=None,  # filled later after execution
+            metadata={
+                "episode_id": episode_id,
+                "prediction": prediction.to_payload(),
+                "scores": dict(scores),
+            },
         )
         self._memory.store_episodic(episodic_item)
 
@@ -158,7 +250,7 @@ class SimpleDecisionMaker:
             self._memory.forget_low_importance(threshold=0.2)
 
         # 1️⃣1️⃣ Return the decision
-        return ARIDecision(
+        decision = ARIDecision(
             action_type=best_action,
             payload=payload,
             tone=tone,
@@ -166,6 +258,32 @@ class SimpleDecisionMaker:
             urgency=urgency,
             speak=speak,
         )
+        self._publish(
+            Event.DECISION,
+            episode_id,
+            5,
+            {
+                "decision": decision,
+                "scores": dict(scores),
+                "chosen_reason": f"{best_action} had the highest score ({best_score:.3f}).",
+            },
+        )
+        self._publish(
+            Event.ACTION,
+            episode_id,
+            6,
+            {
+                "action": Action(
+                    agent_id=self._agent_id,
+                    action_type=best_action,
+                    params=dict(payload),
+                    rationale=f"Selected by SimpleDecisionMaker score {best_score:.3f}",
+                    confidence=max(0.0, min(1.0, best_score)),
+                ),
+                "validated": True,
+            },
+        )
+        return decision
 
     # -----------------------------------------------------------------
     # Scoring helpers
@@ -221,7 +339,7 @@ class SimpleDecisionMaker:
             if isinstance(item, EpisodicItem) and item.decision:
                 # if the past decision matches the action we are scoring,
                 # and it was important, add a bonus
-                if item.decision.action_type == action:
+                if self._decision_field(item.decision, "action_type") == action:
                     mem_bonus += rel * item.importance
         score += mem_bonus * 1.5
 
@@ -286,8 +404,8 @@ class SimpleDecisionMaker:
             # Warning – use any urgent fact from memory or the raw text
             urgent_fact = ""
             for item, _ in relevant:
-                if isinstance(item, EpisodicItem) and getattr(item.decision, "urgency", "") == "high":
-                    urgent_fact = getattr(item.decision, "payload", {}).get("message", "")
+                if isinstance(item, EpisodicItem) and self._decision_field(item.decision, "urgency") == "high":
+                    urgent_fact = self._decision_field(item.decision, "payload", {}).get("message", "")
                     break
             payload["message"] = urgent_fact or getattr(si, "raw_text", "")
         else:  # inform (default)
@@ -326,7 +444,7 @@ class SimpleDecisionMaker:
         relevant: List[Tuple[Any, float]],
         goals: List[Goal],
         chosen_action: str,
-    ) -> tuple[str, float, float, bool]:
+    ) -> tuple[str, str, str, bool]:
         """
         Return (tone, priority, urgency, speak) based on the full context.
         """
@@ -351,10 +469,10 @@ class SimpleDecisionMaker:
         for item, rel in relevant:
             if rel > 0.5 and isinstance(item, EpisodicItem) and item.decision:
                 past = item.decision
-                if past.urgency == "high":
+                if self._decision_field(past, "urgency") == "high":
                     urgency = "high"
                     priority = "high"
-                if past.priority == "high":
+                if self._decision_field(past, "priority") == "high":
                     priority = "high"
 
         # Goal deadline soon → increase priority/urgency
@@ -373,3 +491,53 @@ class SimpleDecisionMaker:
             speak = False
 
         return tone, priority, urgency, speak
+
+    def _publish(
+        self,
+        event_name: str,
+        episode_id: str,
+        sequence: int,
+        payload: dict[str, Any],
+    ) -> None:
+        if not self._emit_events:
+            return
+        self._bus.publish(
+            event_name,
+            CognitiveEvent(
+                episode_id=episode_id,
+                agent_id=self._agent_id,
+                event=event_name,
+                tick=self._decision_count,
+                sequence=sequence,
+                payload=payload,
+            ),
+        )
+
+    @staticmethod
+    def _normalize_score(score: float, scores: dict[str, float]) -> float:
+        total = sum(max(0.0, value) for value in scores.values())
+        if total <= 0:
+            return 0.0
+        return max(0.0, score) / total
+
+    @staticmethod
+    def _memory_kind(item: Any) -> str:
+        return type(item).__name__.replace("Item", "").lower()
+
+    @staticmethod
+    def _memory_snippet(item: Any) -> str:
+        if isinstance(item, EpisodicItem):
+            raw = getattr(item.structured_input, "raw_text", None)
+            if raw:
+                return str(raw)[:120]
+            return str(item.structured_input)[:120]
+        if isinstance(item, SemanticItem):
+            return str(item.fact)[:120]
+        raw = getattr(getattr(item, "structured_input", None), "raw_text", None)
+        return str(raw or item)[:120]
+
+    @staticmethod
+    def _decision_field(decision: Any, field_name: str, default: Any = "") -> Any:
+        if isinstance(decision, dict):
+            return decision.get(field_name, default)
+        return getattr(decision, field_name, default)

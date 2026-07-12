@@ -8,7 +8,7 @@ from .config import CTOConfig
 from .loop import CTOLoop
 from tools.registry import CTOToolRegistry
 from permissions.tiered_model import TieredPermissionPolicy
-from git.operations import GitOperationsImpl
+from git_ops.operations import GitOperationsImpl
 from memory_ext.project_memory import ProjectMemorySQLite
 from delegation.manager import SpecialistManager
 

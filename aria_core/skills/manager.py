@@ -19,11 +19,20 @@ class SkillManager:
     It handles timing, logging, result collection, and parallel execution.
     """
 
-    def __init__(self, registry: SkillRegistry | None = None, max_workers: int = 4) -> None:
+    def __init__(
+        self,
+        registry: SkillRegistry | None = None,
+        max_workers: int = 4,
+        *,
+        auto_register_builtins: bool = False,
+        base_path: str | None = None,
+    ) -> None:
         self._registry = registry or SkillRegistry()
         self._router = SkillRouter(self._registry)
         self._history: list[dict] = []
         self._max_workers = max_workers
+        if auto_register_builtins:
+            self.register_builtin_skills(base_path=base_path)
 
     @property
     def registry(self) -> SkillRegistry:
@@ -35,6 +44,27 @@ class SkillManager:
 
     def register(self, skill: Skill) -> None:
         self._registry.register(skill)
+
+    def register_builtin_skills(self, *, base_path: str | None = None) -> None:
+        """Register built-in skills through the normal registry path."""
+        from .builtin import (
+            CodeSkill,
+            DocSkill,
+            FileSkill,
+            GitSkill,
+            TerminalSkill,
+            WebResearchSkill,
+        )
+
+        for skill in (
+            FileSkill(base_path=base_path),
+            TerminalSkill(default_cwd=base_path),
+            GitSkill(default_cwd=base_path),
+            CodeSkill(base_path=base_path),
+            DocSkill(base_path=base_path),
+            WebResearchSkill(),
+        ):
+            self.register(skill)
 
     def execute(self, task: str, context: dict | None = None) -> SkillResult:
         """Execute a task by routing to appropriate skills."""

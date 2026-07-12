@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="ARIA World dashboard preview">
+  <rect width="1280" height="720" fill="#101312"/>
+  <rect x="24" y="24" width="1232" height="88" rx="8" fill="#151917" stroke="#344039"/>
+  <text x="52" y="68" fill="#eef4ee" font-family="Segoe UI, Arial" font-size="34" font-weight="700">ARIA World Dashboard</text>
+  <text x="52" y="94" fill="#9dad9f" font-family="Segoe UI, Arial" font-size="16">Agents, trust, knowledge, resources, culture, innovation, and benchmark scores in one view.</text>
+  <g transform="translate(24 132)">
+    <rect width="190" height="86" rx="8" fill="#181d1b" stroke="#344039"/>
+    <text x="18" y="28" fill="#9dad9f" font-family="Segoe UI, Arial" font-size="13">POPULATION</text>
+    <text x="18" y="62" fill="#7ad66d" font-family="Segoe UI, Arial" font-size="30" font-weight="700">12 -&gt; 14</text>
+  </g>
+  <g transform="translate(228 132)">
+    <rect width="190" height="86" rx="8" fill="#181d1b" stroke="#344039"/>
+    <text x="18" y="28" fill="#9dad9f" font-family="Segoe UI, Arial" font-size="13">FOOD</text>
+    <text x="18" y="62" fill="#f5c84c" font-family="Segoe UI, Arial" font-size="30" font-weight="700">418</text>
+  </g>
+  <g transform="translate(432 132)">
+    <rect width="190" height="86" rx="8" fill="#181d1b" stroke="#344039"/>
+    <text x="18" y="28" fill="#9dad9f" font-family="Segoe UI, Arial" font-size="13">BENCHMARK</text>
+    <text x="18" y="62" fill="#65d6cf" font-family="Segoe UI, Arial" font-size="30" font-weight="700">74%</text>
+  </g>
+  <g transform="translate(24 238)">
+    <rect width="760" height="430" rx="8" fill="#181d1b" stroke="#344039"/>
+    <rect x="1" y="1" width="758" height="46" rx="8" fill="#202722"/>
+    <text x="18" y="30" fill="#eef4ee" font-family="Segoe UI, Arial" font-size="18" font-weight="600">World Map</text>
+    <rect x="18" y="64" width="724" height="344" rx="4" fill="#163135"/>
+    <path d="M95 123 C240 70 520 72 662 142 C740 216 687 355 528 385 C330 430 140 355 80 250 C43 186 50 146 95 123Z" fill="#263d2f"/>
+    <g fill="#7ad66d"><circle cx="192" cy="205" r="10"/><circle cx="420" cy="162" r="10"/></g>
+    <g fill="#f5c84c"><circle cx="510" cy="280" r="10"/><circle cx="276" cy="320" r="10"/></g>
+    <g fill="#6bb7ff"><circle cx="590" cy="216" r="10"/></g>
+    <g fill="#b890ff"><circle cx="350" cy="235" r="10"/></g>
+  </g>
+  <g transform="translate(804 238)">
+    <rect width="452" height="430" rx="8" fill="#181d1b" stroke="#344039"/>
+    <rect x="1" y="1" width="450" height="46" rx="8" fill="#202722"/>
+    <text x="18" y="30" fill="#eef4ee" font-family="Segoe UI, Arial" font-size="18" font-weight="600">Trust Network</text>
+    <line x1="226" y1="116" x2="332" y2="210" stroke="#7ad66d" stroke-width="3" opacity=".7"/>
+    <line x1="226" y1="116" x2="134" y2="218" stroke="#344039" stroke-width="2"/>
+    <line x1="134" y1="218" x2="332" y2="210" stroke="#65d6cf" stroke-width="2" opacity=".65"/>
+    <circle cx="226" cy="116" r="22" fill="#202722" stroke="#65d6cf" stroke-width="3"/>
+    <circle cx="134" cy="218" r="22" fill="#202722" stroke="#65d6cf" stroke-width="3"/>
+    <circle cx="332" cy="210" r="22" fill="#202722" stroke="#65d6cf" stroke-width="3"/>
+    <text x="226" y="160" fill="#9dad9f" text-anchor="middle" font-family="Segoe UI, Arial" font-size="14">Rosa</text>
+    <text x="134" y="262" fill="#9dad9f" text-anchor="middle" font-family="Segoe UI, Arial" font-size="14">Mira</text>
+    <text x="332" y="254" fill="#9dad9f" text-anchor="middle" font-family="Segoe UI, Arial" font-size="14">Tao</text>
+    <text x="26" y="340" fill="#eef4ee" font-family="Segoe UI, Arial" font-size="16">Knowledge, resources, culture, innovation, and benchmark panels continue below.</text>
+  </g>
+</svg>

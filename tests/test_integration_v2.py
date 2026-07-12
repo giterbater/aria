@@ -17,6 +17,9 @@ class TestARIACoreInit:
         assert core.knowledge is not None
         assert core.learning is not None
         assert core.skills is not None
+        assert core.skills.registry.get("code") is not None
+        assert core.skills.registry.get("terminal") is not None
+        assert core.skills.registry.get("file") is not None
         core.shutdown()
 
     def test_init_with_llm(self, tmp_path):
@@ -66,6 +69,19 @@ class TestARIACoreProcessObjective:
         assert len(reflections) >= 1
         core.shutdown()
 
+    def test_step_feedback_updates_learning_and_memory(self, tmp_path):
+        core = ARIACore(db_path=str(tmp_path / "test.db"))
+        summary = core.process_objective("analyze code")
+
+        assert summary["steps_completed"] >= 1
+        assert core.learning.get_skill_profiles()
+        assert core.memory.size()["episodic"] >= 1
+        assert any(
+            "code" in rate
+            for rate in core.reflection.get_summary().skill_success_rates
+        )
+        core.shutdown()
+
     def test_knowledge_learned(self, tmp_path):
         core = ARIACore(db_path=str(tmp_path / "test.db"))
         core.process_objective("learn from this")
@@ -86,7 +102,7 @@ class TestARIACoreStatus:
         assert "skills" in status
         assert "reflection" in status
         assert "tasks" in status
-        assert status["skills"]["registered"] == 2
+        assert status["skills"]["registered"] >= 6
         core.shutdown()
 
 
